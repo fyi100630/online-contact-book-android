@@ -5,7 +5,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.ui.res.painterResource
+import com.rhythmbyte.contactbook.BuildConfig
 import com.rhythmbyte.contactbook.R
+import com.rhythmbyte.contactbook.data.update.UpdateInfo
+import com.rhythmbyte.contactbook.data.update.UpdateManager
+import com.rhythmbyte.contactbook.ui.components.UpdateDialog
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -154,11 +158,21 @@ fun HomeScreen(
 
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showLogsDialog by remember { mutableStateOf(false) }
+    var updateInfoToPrompt by remember { mutableStateOf<UpdateInfo?>(null) }
+    var isCheckingUpdateManually by remember { mutableStateOf(false) }
     var isEditScreenVisible by remember { mutableStateOf(false) }
     var isMorphingFromBottom by remember { mutableStateOf(false) }
     var editingItem by remember { mutableStateOf<ItemRecord?>(null) }
     var plusButtonBounds by remember { mutableStateOf<Rect?>(null) }
     var rootSize by remember { mutableStateOf(IntSize.Zero) }
+
+    // 啟動時靜默檢查 GitHub Releases 最新版本
+    LaunchedEffect(Unit) {
+        val update = UpdateManager.checkForUpdates(BuildConfig.VERSION_NAME)
+        if (update != null) {
+            updateInfoToPrompt = update
+        }
+    }
 
     val revealAnim = remember { Animatable(0f) }
     val coroutineScope = rememberCoroutineScope()
@@ -334,6 +348,41 @@ fun HomeScreen(
 
                              // 身分與操作按鈕 (LiquidButton with Backdrop Physics)
                              Row(verticalAlignment = Alignment.CenterVertically) {
+                                 LiquidButton(
+                                     onClick = {
+                                         if (isCheckingUpdateManually) return@LiquidButton
+                                         isCheckingUpdateManually = true
+                                         coroutineScope.launch {
+                                             val update = UpdateManager.checkForUpdates(BuildConfig.VERSION_NAME)
+                                             isCheckingUpdateManually = false
+                                             if (update != null) {
+                                                 updateInfoToPrompt = update
+                                             } else {
+                                                 snackbarHostState.showSnackbar("🎉 目前已是最新版本 (v${BuildConfig.VERSION_NAME})")
+                                             }
+                                         }
+                                     },
+                                     backdrop = ambientBackdrop,
+                                     tint = Emerald600,
+                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                                 ) {
+                                     if (isCheckingUpdateManually) {
+                                         CircularProgressIndicator(
+                                             modifier = Modifier.size(10.dp),
+                                             strokeWidth = 1.5.dp,
+                                             color = Color.White
+                                         )
+                                         Spacer(modifier = Modifier.width(4.dp))
+                                     }
+                                     Text(
+                                         if (isCheckingUpdateManually) "檢查中" else "🔄 更新",
+                                         fontSize = 11.sp,
+                                         color = Color.White,
+                                         fontWeight = FontWeight.Bold
+                                     )
+                                 }
+                                 Spacer(modifier = Modifier.width(6.dp))
+
                                  if (isSuperAdmin) {
                                      LiquidButton(
                                          onClick = { showLogsDialog = true },
@@ -685,6 +734,13 @@ fun HomeScreen(
                 onFetchLogs = { viewModel.fetchHistoryLogs() },
                 onDismiss = { showLogsDialog = false },
                 onRestore = { log -> viewModel.restoreFromLog(log) }
+            )
+        }
+
+        updateInfoToPrompt?.let { update ->
+            UpdateDialog(
+                updateInfo = update,
+                onDismiss = { updateInfoToPrompt = null }
             )
         }
     }
