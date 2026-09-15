@@ -40,24 +40,4 @@
 | **持久化設定** | AndroidX Jetpack DataStore Preferences |
 | **最低版本支援**| Android 8.0 (API 26)+，最佳體驗 Android 12+ (API 31+) |
 
----
 
-## 🚀 如何在 Android Studio 中開啟與編譯？
-
-1. 下載並安裝最新版 [Android Studio](https://developer.android.com/studio)（推薦 Hedgehog 或更高版本，內建 JDK 17）。
-2. 在 Android Studio 首頁點擊 **Open**，選取本專案目錄：
-   ```
-   C:\Users\cljll\Desktop\online-contact-book-android
-   ```
-3. 等待 Gradle 依賴自動同步完成（第一次開啟會自動自 Maven Central 與 Google 倉庫下載相關依賴）。
-4. 連接真實 Android 手機（開啟 USB 調試）或啟動內建模擬器。
-5. 點擊頂部綠色 **Run ▶ (Shift + F10)**，即可直接安裝並體驗流暢的液態玻璃即時聯絡簿！
-
----
-
-## 📦 如何打包成 APK 安裝檔？
-
-在 Android Studio 頂部選單點擊：
-> **Build** ➜ **Build Bundle(s) / APK(s)** ➜ **Build APK(s)**
-
-編譯完成後點擊通知中的 **locate**，即可取得 `app-debug.apk`，傳送至手機即可直接點擊安裝使用！
