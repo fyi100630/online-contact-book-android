@@ -346,76 +346,103 @@ fun HomeScreen(
                                  }
                              }
 
-                             // 身分與操作按鈕 (LiquidButton with Backdrop Physics)
-                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                 LiquidButton(
-                                     onClick = {
-                                         if (isCheckingUpdateManually) return@LiquidButton
-                                         isCheckingUpdateManually = true
-                                         coroutineScope.launch {
-                                             val update = UpdateManager.checkForUpdates(BuildConfig.VERSION_NAME)
-                                             isCheckingUpdateManually = false
-                                             if (update != null) {
-                                                 updateInfoToPrompt = update
-                                             } else {
-                                                 snackbarHostState.showSnackbar("🎉 目前已是最新版本 (v${BuildConfig.VERSION_NAME})")
-                                             }
-                                         }
-                                     },
-                                     backdrop = ambientBackdrop,
-                                     tint = Emerald600,
-                                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                                 ) {
-                                     if (isCheckingUpdateManually) {
-                                         CircularProgressIndicator(
-                                             modifier = Modifier.size(10.dp),
-                                             strokeWidth = 1.5.dp,
-                                             color = Color.White
-                                         )
-                                         Spacer(modifier = Modifier.width(4.dp))
-                                     }
-                                     Text(
-                                         if (isCheckingUpdateManually) "檢查中" else "🔄 更新",
-                                         fontSize = 11.sp,
-                                         color = Color.White,
-                                         fontWeight = FontWeight.Bold
-                                     )
-                                 }
-                                 Spacer(modifier = Modifier.width(6.dp))
+                              // 身分操作按鈕（登出 / 編輯登入）
+                              if (isAdmin) {
+                                  LiquidButton(
+                                      onClick = { viewModel.logout() },
+                                      backdrop = ambientBackdrop,
+                                      tint = Rose500,
+                                      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)
+                                  ) {
+                                      Text("🚪 登出", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                  }
+                              } else {
+                                  LiquidButton(
+                                      onClick = { showPasswordDialog = true },
+                                      backdrop = ambientBackdrop,
+                                      tint = Amber500,
+                                      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)
+                                  ) {
+                                      Text("🔑 編輯登入", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                  }
+                              }
+                          }
 
-                                 if (isSuperAdmin) {
-                                     LiquidButton(
-                                         onClick = { showLogsDialog = true },
-                                         backdrop = ambientBackdrop,
-                                         tint = Purple500,
-                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                     ) {
-                                         Text("🕒 歷史紀錄", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                     }
-                                     Spacer(modifier = Modifier.width(6.dp))
-                                 }
+                          // 第二列：工具操作列（檢查更新、歷史紀錄、版本號標籤）
+                          Spacer(modifier = Modifier.height(10.dp))
+                          Row(
+                              modifier = Modifier.fillMaxWidth(),
+                              horizontalArrangement = Arrangement.SpaceBetween,
+                              verticalAlignment = Alignment.CenterVertically
+                          ) {
+                              Row(
+                                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                  verticalAlignment = Alignment.CenterVertically
+                              ) {
+                                  // 檢查更新按鈕
+                                  LiquidButton(
+                                      onClick = {
+                                          if (isCheckingUpdateManually) return@LiquidButton
+                                          isCheckingUpdateManually = true
+                                          coroutineScope.launch {
+                                              val update = UpdateManager.checkForUpdates(BuildConfig.VERSION_NAME)
+                                              isCheckingUpdateManually = false
+                                              if (update != null) {
+                                                  updateInfoToPrompt = update
+                                              } else {
+                                                  snackbarHostState.showSnackbar("🎉 目前已是最新版本 (v${BuildConfig.VERSION_NAME})")
+                                              }
+                                          }
+                                      },
+                                      backdrop = ambientBackdrop,
+                                      tint = Emerald600,
+                                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                  ) {
+                                      if (isCheckingUpdateManually) {
+                                          CircularProgressIndicator(
+                                              modifier = Modifier.size(11.dp),
+                                              strokeWidth = 1.5.dp,
+                                              color = Color.White
+                                          )
+                                          Spacer(modifier = Modifier.width(5.dp))
+                                      } else {
+                                          Text("🔄 ", fontSize = 11.sp)
+                                      }
+                                      Text(
+                                          if (isCheckingUpdateManually) "檢查中..." else "檢查更新",
+                                          fontSize = 11.sp,
+                                          color = Color.White,
+                                          fontWeight = FontWeight.Bold
+                                      )
+                                  }
 
-                                 if (isAdmin) {
-                                     LiquidButton(
-                                         onClick = { viewModel.logout() },
-                                         backdrop = ambientBackdrop,
-                                         tint = Rose500,
-                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                     ) {
-                                         Text("🚪 登出", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                     }
-                                 } else {
-                                     LiquidButton(
-                                         onClick = { showPasswordDialog = true },
-                                         backdrop = ambientBackdrop,
-                                         tint = Amber500,
-                                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                     ) {
-                                         Text("🔑 編輯登入", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                     }
-                                 }
-                             }
-                         }
+                                  if (isSuperAdmin) {
+                                      LiquidButton(
+                                          onClick = { showLogsDialog = true },
+                                          backdrop = ambientBackdrop,
+                                          tint = Purple500,
+                                          contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                      ) {
+                                          Text("🕒 歷史紀錄", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                      }
+                                  }
+                              }
+
+                              // 當前版本標籤
+                              Box(
+                                  modifier = Modifier
+                                      .clip(RoundedCornerShape(8.dp))
+                                      .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
+                                      .padding(horizontal = 8.dp, vertical = 4.dp)
+                              ) {
+                                  Text(
+                                      text = "v${BuildConfig.VERSION_NAME}",
+                                      fontSize = 11.sp,
+                                      fontWeight = FontWeight.SemiBold,
+                                      color = Slate500
+                                  )
+                              }
+                          }
 
                          // 管理員橫幅提示
                         if (isAdmin) {
