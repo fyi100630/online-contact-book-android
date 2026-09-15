@@ -10,6 +10,13 @@ import com.rhythmbyte.contactbook.R
 import com.rhythmbyte.contactbook.data.update.UpdateInfo
 import com.rhythmbyte.contactbook.data.update.UpdateManager
 import com.rhythmbyte.contactbook.ui.components.UpdateDialog
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -158,6 +165,8 @@ fun HomeScreen(
 
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showLogsDialog by remember { mutableStateOf(false) }
+    var showEditAnnouncementDialog by remember { mutableStateOf(false) }
+    var editingAnnouncementText by remember { mutableStateOf("") }
     var updateInfoToPrompt by remember { mutableStateOf<UpdateInfo?>(null) }
     var isCheckingUpdateManually by remember { mutableStateOf(false) }
     var isEditScreenVisible by remember { mutableStateOf(false) }
@@ -233,6 +242,7 @@ fun HomeScreen(
 
     val isAdmin = uiState.userRole != UserRole.VISITOR
     val isSuperAdmin = uiState.userRole == UserRole.SUPER_ADMIN
+    val isDarkTheme = isSystemInDarkTheme()
 
     val ambientBackdrop = rememberCanvasBackdrop {
         drawRect(
@@ -288,7 +298,7 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                 // 頂部導航與身分列 (Liquid Glass Header)
                 LiquidGlassCard(
@@ -298,206 +308,312 @@ fun HomeScreen(
                     elevation = 6.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // 標題與圖標（復原綠底圖標風格）
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            // 標題與圖標
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false)
+                            ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(40.dp)
-                                        .clip(RoundedCornerShape(12.dp))
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(10.dp))
                                         .background(Color.White)
-                                        .shadow(4.dp, RoundedCornerShape(12.dp)),
+                                        .shadow(3.dp, RoundedCornerShape(10.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Image(
                                         painter = painterResource(id = R.drawable.ic_app_logo),
                                         contentDescription = "App Logo",
-                                        modifier = Modifier.size(32.dp)
+                                        modifier = Modifier.size(26.dp)
                                     )
                                 }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f, fill = false)) {
                                     Text(
                                         text = uiState.classTitle,
                                         style = MaterialTheme.typography.titleMedium,
+                                        fontSize = 14.sp,
                                         fontWeight = FontWeight.ExtraBold,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                         Box(
-                                             modifier = Modifier
-                                                 .size(6.dp)
-                                                 .clip(CircleShape)
-                                                 .background(if (uiState.isRealtimeConnected) Emerald500 else Rose500)
-                                         )
-                                         Spacer(modifier = Modifier.width(4.dp))
-                                         Text(
-                                             text = if (uiState.isRealtimeConnected) "雲端即時連線" else "已離線",
-                                             fontSize = 10.sp,
-                                             color = if (uiState.isRealtimeConnected) Emerald600 else Rose500,
-                                             fontWeight = FontWeight.Medium
-                                         )
-                                     }
-                                 }
-                             }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(5.dp)
+                                                .clip(CircleShape)
+                                                .background(if (uiState.isRealtimeConnected) Emerald500 else Rose500)
+                                        )
+                                        Spacer(modifier = Modifier.width(3.dp))
+                                        Text(
+                                            text = (if (uiState.isRealtimeConnected) "連線中" else "已離線") + " · v${BuildConfig.VERSION_NAME}",
+                                            fontSize = 9.5.sp,
+                                            color = if (uiState.isRealtimeConnected) Emerald600 else Rose500,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
+                            }
 
-                              // 身分操作按鈕（登出 / 編輯登入）
-                              if (isAdmin) {
-                                  LiquidButton(
-                                      onClick = { viewModel.logout() },
-                                      backdrop = ambientBackdrop,
-                                      tint = Rose500,
-                                      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)
-                                  ) {
-                                      Text("🚪 登出", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                  }
-                              } else {
-                                  LiquidButton(
-                                      onClick = { showPasswordDialog = true },
-                                      backdrop = ambientBackdrop,
-                                      tint = Amber500,
-                                      contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)
-                                  ) {
-                                      Text("🔑 編輯登入", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                  }
-                              }
-                          }
+                            Spacer(modifier = Modifier.width(6.dp))
 
-                          // 第二列：工具操作列（檢查更新、歷史紀錄、版本號標籤）
-                          Spacer(modifier = Modifier.height(10.dp))
-                          Row(
-                              modifier = Modifier.fillMaxWidth(),
-                              horizontalArrangement = Arrangement.SpaceBetween,
-                              verticalAlignment = Alignment.CenterVertically
-                          ) {
-                              Row(
-                                  horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                  verticalAlignment = Alignment.CenterVertically
-                              ) {
-                                  // 檢查更新按鈕
-                                  LiquidButton(
-                                      onClick = {
-                                          if (isCheckingUpdateManually) return@LiquidButton
-                                          isCheckingUpdateManually = true
-                                          coroutineScope.launch {
-                                              val update = UpdateManager.checkForUpdates(BuildConfig.VERSION_NAME)
-                                              isCheckingUpdateManually = false
-                                              if (update != null) {
-                                                  updateInfoToPrompt = update
-                                              } else {
-                                                  snackbarHostState.showSnackbar("🎉 目前已是最新版本 (v${BuildConfig.VERSION_NAME})")
-                                              }
-                                          }
-                                      },
-                                      backdrop = ambientBackdrop,
-                                      tint = Emerald600,
-                                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                  ) {
-                                      if (isCheckingUpdateManually) {
-                                          CircularProgressIndicator(
-                                              modifier = Modifier.size(11.dp),
-                                              strokeWidth = 1.5.dp,
-                                              color = Color.White
-                                          )
-                                          Spacer(modifier = Modifier.width(5.dp))
-                                      } else {
-                                          Text("🔄 ", fontSize = 11.sp)
-                                      }
-                                      Text(
-                                          if (isCheckingUpdateManually) "檢查中..." else "檢查更新",
-                                          fontSize = 11.sp,
-                                          color = Color.White,
-                                          fontWeight = FontWeight.Bold
-                                      )
-                                  }
+                            // 單行操作按鈕群組 (完全不換行，微型流體按鈕)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                // 檢查更新按鈕
+                                LiquidButton(
+                                    onClick = {
+                                        if (isCheckingUpdateManually) return@LiquidButton
+                                        isCheckingUpdateManually = true
+                                        coroutineScope.launch {
+                                            val update = UpdateManager.checkForUpdates(BuildConfig.VERSION_NAME)
+                                            isCheckingUpdateManually = false
+                                            if (update != null) {
+                                                updateInfoToPrompt = update
+                                            } else {
+                                                snackbarHostState.showSnackbar("🎉 目前已是最新版本 (v${BuildConfig.VERSION_NAME})")
+                                            }
+                                        }
+                                    },
+                                    backdrop = ambientBackdrop,
+                                    tint = Emerald600,
+                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                    minWidth = 32.dp,
+                                    minHeight = 32.dp
+                                ) {
+                                    if (isCheckingUpdateManually) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(10.dp),
+                                            strokeWidth = 1.5.dp,
+                                            color = Color.White
+                                        )
+                                    } else {
+                                        Text("🔄", fontSize = 10.sp)
+                                    }
+                                    Text(
+                                        if (isCheckingUpdateManually) "檢查中" else "檢查更新",
+                                        fontSize = 10.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
 
-                                  if (isSuperAdmin) {
-                                      LiquidButton(
-                                          onClick = { showLogsDialog = true },
-                                          backdrop = ambientBackdrop,
-                                          tint = Purple500,
-                                          contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                                      ) {
-                                          Text("🕒 歷史紀錄", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                                      }
-                                  }
-                              }
+                                if (isSuperAdmin) {
+                                    LiquidButton(
+                                        onClick = { showLogsDialog = true },
+                                        backdrop = ambientBackdrop,
+                                        tint = Purple500,
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                        minWidth = 32.dp,
+                                        minHeight = 32.dp
+                                    ) {
+                                        Text("🕒", fontSize = 10.sp)
+                                        Text("歷史紀錄", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                }
 
-                              // 當前版本標籤
-                              Box(
-                                  modifier = Modifier
-                                      .clip(RoundedCornerShape(8.dp))
-                                      .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
-                                      .padding(horizontal = 8.dp, vertical = 4.dp)
-                              ) {
-                                  Text(
-                                      text = "v${BuildConfig.VERSION_NAME}",
-                                      fontSize = 11.sp,
-                                      fontWeight = FontWeight.SemiBold,
-                                      color = Slate500
-                                  )
-                              }
-                          }
+                                if (isAdmin) {
+                                    LiquidButton(
+                                        onClick = { viewModel.logout() },
+                                        backdrop = ambientBackdrop,
+                                        tint = Rose500,
+                                        contentPadding = PaddingValues(horizontal = 7.dp, vertical = 4.dp),
+                                        minWidth = 32.dp,
+                                        minHeight = 32.dp
+                                    ) {
+                                        Text("🚪", fontSize = 10.sp)
+                                        Text("登出", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    LiquidButton(
+                                        onClick = { showPasswordDialog = true },
+                                        backdrop = ambientBackdrop,
+                                        tint = Amber500,
+                                        contentPadding = PaddingValues(horizontal = 7.dp, vertical = 4.dp),
+                                        minWidth = 32.dp,
+                                        minHeight = 32.dp
+                                    ) {
+                                        Text("🔑", fontSize = 10.sp)
+                                        Text("編輯登入", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
 
-                         // 管理員橫幅提示
+                        // 管理員模式提示（100% 比照網頁版半透明琥珀玻璃膠囊樣式）
                         if (isAdmin) {
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            colors = listOf(Amber500.copy(alpha = 0.85f), Orange500.copy(alpha = 0.85f))
-                                        )
-                                    )
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    .background(if (isDarkTheme) Amber500.copy(alpha = 0.18f) else Amber500.copy(alpha = 0.12f))
+                                    .border(1.dp, Amber500.copy(alpha = if (isDarkTheme) 0.45f else 0.35f), RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
                             ) {
                                 Text(
-                                    text = if (isSuperAdmin) "登入成功，目前處於管理員模式" else "登入成功，目前處於編輯者模式",
-                                    fontSize = 11.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.SemiBold
+                                    text = if (isSuperAdmin) "👑 登入成功，目前處於管理員模式" else "✏️ 登入成功，目前處於編輯者模式",
+                                    fontSize = 10.5.sp,
+                                    color = if (isDarkTheme) Color(0xFFFDE68A) else Color(0xFF78350F),
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // 班級公告 (Liquid Glass Announcement Card)
+                // 班級公告 (Liquid Glass Announcement Card - 100% 比照網頁版樣式)
                 if (uiState.announcement.isNotEmpty()) {
+                    val announcementTitleColor = if (isDarkTheme) Color(0xFFFDE68A) else Color(0xFF451A03)
+                    val announcementChipBg = Amber500.copy(alpha = if (isDarkTheme) 0.25f else 0.20f)
+                    val announcementChipBorder = Amber500.copy(alpha = if (isDarkTheme) 0.40f else 0.30f)
+                    val announcementChipText = if (isDarkTheme) Color(0xFFFDE68A) else Color(0xFF78350F)
+                    val announcementBodyColor = if (isDarkTheme) Color(0xFFFEF3C7) else Color(0xFF78350F).copy(alpha = 0.95f)
+                    val announcementActionColor = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFF92400E)
+
                     LiquidGlassCard(
                         shape = RoundedCornerShape(18.dp),
                         cornerRadius = 18.dp,
-                        tintColor = Amber500.copy(alpha = 0.12f),
-                        borderColor = Amber500.copy(alpha = 0.4f),
+                        tintColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
+                        borderColor = Amber500.copy(alpha = 0.35f),
                         elevation = 4.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(
+                                            Amber500.copy(alpha = 0.15f),
+                                            Amber500.copy(alpha = 0.05f),
+                                            Color.Transparent
+                                        )
+                                    )
+                                )
+                                .padding(14.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = "📢",
+                                    fontSize = 22.sp,
+                                    modifier = Modifier.padding(top = 1.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "重要公告",
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = announcementTitleColor,
+                                                fontSize = 14.sp
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(CircleShape)
+                                                    .background(announcementChipBg)
+                                                    .border(1.dp, announcementChipBorder, CircleShape)
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = "置頂通知",
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = announcementChipText
+                                                )
+                                            }
+                                        }
+
+                                        if (isSuperAdmin) {
+                                            Text(
+                                                text = "修改公告",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = announcementActionColor,
+                                                textDecoration = TextDecoration.Underline,
+                                                modifier = Modifier.clickable {
+                                                    editingAnnouncementText = uiState.announcement
+                                                    showEditAnnouncementDialog = true
+                                                }
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = uiState.announcement,
+                                        fontSize = 13.sp,
+                                        lineHeight = 18.sp,
+                                        color = announcementBodyColor,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                } else if (isSuperAdmin) {
+                    LiquidGlassCard(
+                        shape = RoundedCornerShape(16.dp),
+                        cornerRadius = 16.dp,
+                        tintColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
+                        borderColor = Amber500.copy(alpha = 0.35f),
+                        elevation = 3.dp,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(horizontal = 14.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("📢", fontSize = 18.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("📢", fontSize = 16.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "目前無置頂公告",
+                                    fontSize = 12.sp,
+                                    color = Slate500,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                             Text(
-                                text = uiState.announcement,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                text = "+ 新增公告",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isDarkTheme) Color(0xFFFCD34D) else Color(0xFF92400E),
+                                textDecoration = TextDecoration.Underline,
+                                modifier = Modifier.clickable {
+                                    editingAnnouncementText = ""
+                                    showEditAnnouncementDialog = true
+                                }
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
                 // 日期切換膠囊 (Date Navigation Capsules)
@@ -769,6 +885,60 @@ fun HomeScreen(
                 updateInfo = update,
                 onDismiss = { updateInfoToPrompt = null }
             )
+        }
+
+        if (showEditAnnouncementDialog) {
+            Dialog(onDismissRequest = { showEditAnnouncementDialog = false }) {
+                LiquidGlassCard(
+                    shape = RoundedCornerShape(24.dp),
+                    cornerRadius = 24.dp,
+                    tintColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                    elevation = 16.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Text(
+                            text = "📢 編輯班級重要公告",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = editingAnnouncementText,
+                            onValueChange = { editingAnnouncementText = it },
+                            label = { Text("置頂公告內容 (若無可留空)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 3,
+                            maxLines = 6,
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            OutlinedButton(
+                                onClick = { showEditAnnouncementDialog = false },
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("取消")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    viewModel.updateAnnouncement(editingAnnouncementText.trim())
+                                    showEditAnnouncementDialog = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Emerald500),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("發布公告", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

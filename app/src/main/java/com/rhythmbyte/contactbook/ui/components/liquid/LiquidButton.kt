@@ -53,6 +53,9 @@ fun LiquidButton(
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
     contentPadding: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+    minWidth: androidx.compose.ui.unit.Dp = 32.dp,
+    minHeight: androidx.compose.ui.unit.Dp = 32.dp,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
     content: @Composable RowScope.() -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -197,9 +200,9 @@ fun LiquidButton(
                     ),
                     shape = resolvedShape
                 )
-                .defaultMinSize(minWidth = 40.dp, minHeight = 40.dp)
+                .defaultMinSize(minWidth = minWidth, minHeight = minHeight)
                 .padding(contentPadding),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = horizontalArrangement,
             verticalAlignment = Alignment.CenterVertically,
             content = content
         )
