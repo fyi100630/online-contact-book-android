@@ -10,6 +10,8 @@ import com.rhythmbyte.contactbook.R
 import com.rhythmbyte.contactbook.data.update.UpdateInfo
 import com.rhythmbyte.contactbook.data.update.UpdateManager
 import com.rhythmbyte.contactbook.ui.components.UpdateDialog
+import com.rhythmbyte.contactbook.ui.components.ClickableLinkText
+import com.rhythmbyte.contactbook.ui.components.InstallStatsDialog
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
@@ -165,6 +167,7 @@ fun HomeScreen(
 
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showLogsDialog by remember { mutableStateOf(false) }
+    var showStatsDialog by remember { mutableStateOf(false) }
     var showEditAnnouncementDialog by remember { mutableStateOf(false) }
     var editingAnnouncementText by remember { mutableStateOf("") }
     var updateInfoToPrompt by remember { mutableStateOf<UpdateInfo?>(null) }
@@ -410,6 +413,21 @@ fun HomeScreen(
 
                                 if (isSuperAdmin) {
                                     LiquidButton(
+                                        onClick = {
+                                            viewModel.fetchInstallStats()
+                                            showStatsDialog = true
+                                        },
+                                        backdrop = ambientBackdrop,
+                                        tint = Sky500,
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                                        minWidth = 32.dp,
+                                        minHeight = 32.dp
+                                    ) {
+                                        Text("📊", fontSize = 10.sp)
+                                        Text("統計", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    LiquidButton(
                                         onClick = { showLogsDialog = true },
                                         backdrop = ambientBackdrop,
                                         tint = Purple500,
@@ -562,11 +580,12 @@ fun HomeScreen(
                                     }
 
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
+                                    ClickableLinkText(
                                         text = uiState.announcement,
                                         fontSize = 13.sp,
                                         lineHeight = 18.sp,
                                         color = announcementBodyColor,
+                                        linkColor = announcementActionColor,
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
@@ -877,6 +896,15 @@ fun HomeScreen(
                 onFetchLogs = { viewModel.fetchHistoryLogs() },
                 onDismiss = { showLogsDialog = false },
                 onRestore = { log -> viewModel.restoreFromLog(log) }
+            )
+        }
+
+        if (showStatsDialog) {
+            InstallStatsDialog(
+                stats = uiState.installStats,
+                isLoading = uiState.isLoadingStats,
+                onRefresh = { viewModel.fetchInstallStats() },
+                onDismiss = { showStatsDialog = false }
             )
         }
 

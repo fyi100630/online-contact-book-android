@@ -15,11 +15,27 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import java.time.Instant
+
+@Serializable
+data class AppInstallation(
+    val id: String,
+    @SerialName("app_version")
+    val appVersion: String,
+    @SerialName("last_seen_at")
+    val lastSeenAt: String? = null
+)
+
+data class InstallStats(
+    val totalInstalls: Int = 0,
+    val versionCounts: Map<String, Int> = emptyMap()
+)
 
 class SupabaseRepository {
 
@@ -139,6 +155,28 @@ class SupabaseRepository {
                     eq("id", ROW_ID)
                 }
             }
+        }
+    }
+
+    suspend fun reportInstallation(installId: String, version: String): Result<Unit> {
+        return runCatching {
+            val nowIso = Instant.now().toString()
+            supabase.from("app_installations").upsert(
+                buildJsonObject {
+                    put("id", installId)
+                    put("app_version", version)
+                    put("last_seen_at", nowIso)
+                }
+            )
+        }
+    }
+
+    suspend fun fetchInstallStats(): Result<InstallStats> {
+        return runCatching {
+            val list = supabase.from("app_installations").select().decodeList<AppInstallation>()
+            val total = list.size
+            val counts = list.groupingBy { it.appVersion }.eachCount()
+            InstallStats(totalInstalls = total, versionCounts = counts)
         }
     }
 }

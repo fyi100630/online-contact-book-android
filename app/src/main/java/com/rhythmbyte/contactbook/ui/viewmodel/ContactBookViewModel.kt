@@ -9,6 +9,8 @@ import com.rhythmbyte.contactbook.data.model.ContactBookLogEntry
 import com.rhythmbyte.contactbook.data.model.ItemCategory
 import com.rhythmbyte.contactbook.data.model.ItemRecord
 import com.rhythmbyte.contactbook.data.model.UserRole
+import com.rhythmbyte.contactbook.BuildConfig
+import com.rhythmbyte.contactbook.data.repository.InstallStats
 import com.rhythmbyte.contactbook.data.repository.SupabaseRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,7 +36,9 @@ data class ContactBookUiState(
     val errorMessage: String? = null,
     val toastMessage: String? = null,
     val logsList: List<ContactBookLogEntry> = emptyList(),
-    val isLoadingLogs: Boolean = false
+    val isLoadingLogs: Boolean = false,
+    val installStats: InstallStats? = null,
+    val isLoadingStats: Boolean = false
 )
 
 class ContactBookViewModel(application: Application) : AndroidViewModel(application) {
@@ -58,6 +62,14 @@ class ContactBookViewModel(application: Application) : AndroidViewModel(applicat
             authPreferences.userRoleFlow.collect { savedRole ->
                 _uiState.value = _uiState.value.copy(userRole = savedRole)
             }
+        }
+
+        // 啟動匿名安裝統計回報 (極簡簽到)
+        viewModelScope.launch {
+            try {
+                val installId = authPreferences.getOrCreateInstallId()
+                repository.reportInstallation(installId, BuildConfig.VERSION_NAME)
+            } catch (_: Exception) {}
         }
 
         loadLatestData()
@@ -242,6 +254,20 @@ class ContactBookViewModel(application: Application) : AndroidViewModel(applicat
             ChronoUnit.DAYS.between(d1, d2)
         } catch (e: Exception) {
             null
+        }
+    }
+
+    fun fetchInstallStats() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingStats = true)
+            repository.fetchInstallStats().onSuccess { stats ->
+                _uiState.value = _uiState.value.copy(installStats = stats, isLoadingStats = false)
+            }.onFailure {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingStats = false,
+                    toastMessage = "取得統計失敗，請先至 Supabase 建立 app_installations 資料表"
+                )
+            }
         }
     }
 }
