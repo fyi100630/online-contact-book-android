@@ -1,43 +1,28 @@
-# 📱 線上班級聯絡簿 (Online Contact Book for Android)
+# 📖 班級聯絡簿（唯讀模式）
 
-一個現代、輕量、具備前衛 **Liquid Glass（液態玻璃透鏡折射）** 主視覺的 Android 原生班級聯絡簿 App。
-與現有 **Vercel 網頁版** 及 **Supabase 雲端資料庫** 保持 100% 毫秒級雙向即時同步。
-
----
-
-## ✨ 核心特色
-
-1. **GitHub 最高星 Liquid Glass 主視覺**：
-   - 採用 GitHub 上人氣第一名（3,700+ Stars）的 **[Kyant0 / AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)** (`io.github.kyant0:backdrop`) 渲染技術。
-   - 具備真實物理光學**透鏡折射（Lens Refraction）**、**色彩活力（Vibrancy）**、**邊緣色散（Dispersion）** 與晶瑩通透的高光導角。
-2. **永遠最新（Live-Only Architecture，無過期快取）**：
-   - 捨棄離線舊資料快取，保證每次點開看到的都是最新一期的作業與通知，杜絕「家長在離線狀態下看到過期資訊」的疑慮。
-   - 常駐 **Supabase Realtime WebSocket 推播**，網頁端一發布，手機端在 1 秒內自動平滑刷新。
-3. **一次登入，永久免重複輸入密碼**：
-   - 使用 Android 官方推薦的 **Jetpack DataStore** 本機持久化。
-   - 輸入一次密碼後，App 即永久記住身分，下次開啟直接進入編輯／管理員狀態。
-   - 提供「🚪 登出」按鈕，方便一鍵退回訪客檢視模式。
-4. **四大板塊清楚陳列**：
-   - 📝 **作業**（支援截止倒數提醒）
-   - 📋 **考試／評量**
-   - 📦 **繳交項目**
-   - 🔔 **重要提醒**
-5. **最高管理員專屬功能**：
-   - 班級公告即時修改。
-   - 🕒 **72 小時歷史快照版本瀏覽與一鍵防呆還原**。
+這是專為班級同學與家長設計的**唯讀模式（View-Only）**線上班級聯絡簿。
 
 ---
 
-## 🛠️ 開發技術棧 (Tech Stack)
+## ✨ 版本特點
+- 🔒 **純檢視無編輯權限**：介面徹底拔除所有「新增」、「編輯」、「刪除」等操作按鈕與表單，杜絕誤觸或同學惡作劇竄改。
+- 🔄 **毫秒級即時同步**：與管理版（管理者編輯）共用同一個 Firebase Realtime Database，管理者一修改，同學端 0.1 秒內畫面自動無痛更新，無需重新整理。
+- ⚡ **0 毫秒秒開**：本機快取優先載入，打開網頁瞬間呈現最新聯絡簿內容。
+- 📱 **手機響應式液態玻璃**：精美 Liquid Glass 質感設計，適應所有手機與平板螢幕。
 
-| 層級 | 技術選型 |
-| :--- | :--- |
-| **程式語言** | Kotlin 2.0.20 |
-| **UI 框架** | Jetpack Compose (Material 3) |
-| **視覺特效庫** | `io.github.kyant0:backdrop:0.2.2` (Liquid Glass / AGSL) |
-| **雲端資料庫** | Supabase Kotlin SDK (`postgrest-kt`, `realtime-kt`) |
-| **HTTP 引擎** | Ktor Client (OkHttp) |
-| **持久化設定** | AndroidX Jetpack DataStore Preferences |
-| **最低版本支援**| Android 8.0 (API 26)+，最佳體驗 Android 12+ (API 31+) |
+---
 
+## 🚀 部署至 GitHub Pages 步驟
 
+1. 在 GitHub 上建立一個新的公開倉庫（Repository），例如命名為：  
+   `online-contact-book-view` 或 `online-contact-book-lys-view`
+2. 在此資料夾 (`C:\Users\fyi10\Desktop\47v`) 開啟終端機並執行：
+   ```bash
+   git remote add origin https://github.com/你的帳號/倉庫名稱.git
+   git branch -M main
+   git push -u origin main
+   ```
+3. 前往 GitHub 倉庫的 **Settings ➔ Pages**：
+   - **Branch** 選擇 `main`，目錄選擇 `/ (root)`。
+   - 點擊 **Save**。
+4. 約 1 分鐘後即可取得同學專屬的檢視連結（例如：`https://你的帳號.github.io/倉庫名稱/`）！
