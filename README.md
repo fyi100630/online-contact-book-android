@@ -17,16 +17,6 @@
 - `minSdk 26`（Android 8.0）；歷史版本使用 `compileSdk 35`
 - Supabase Kotlin SDK（PostgREST、Realtime）、Ktor、Android DataStore
 
-## 復原原始碼
-
-可在目前分支建立復原分支，將刪除前的 app 與 Gradle 檔案取回：
-
-```bash
-git switch -c restore-source
-git restore --source=49b30f2 --staged --worktree -- app gradle .gitignore build.gradle.kts gradle.properties settings.gradle.kts gradlew.bat
-```
-
-復原後，以 Android Studio 開啟專案，使用 JDK 17。歷史版本沒有附上 Supabase 資料表建立腳本；執行前需自行準備並設定後端資料表及存取政策。此版本的 Gradle 專案只有 Windows 的 `gradlew.bat`，在 macOS／Linux 建置前需補回 Gradle Wrapper 啟動腳本。
 
 ## 後端資料
 
@@ -46,6 +36,3 @@ git restore --source=49b30f2 --staged --worktree -- app gradle .gitignore build.
 - 歷史原始碼包含 `com.kyant` 與 `com.kyant.shapes` 套件的上游程式碼。復原或重新發布時，請保留並檢查上游 [Apache-2.0 授權](https://github.com/Kyant0/AndroidLiquidGlass/blob/master/LICENSE)及必要的第三方聲明。
 - 確認 Supabase 金鑰只使用適合放在客戶端的公開金鑰，絕不可把 `service_role` 金鑰、簽署金鑰或其他伺服器密鑰提交到 Git。
 
-## 授權
-
-尚未指定。請在著作權人確認並加入 `LICENSE` 後更新本節。
