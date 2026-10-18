@@ -2,8 +2,6 @@
 
 以 Kotlin 與 Jetpack Compose 開發的 Android 班級聯絡簿，透過 Supabase 讀取班級公告與各類事項。
 
-> **倉庫狀態：**目前 `main` 分支只剩 README，無法直接編譯。Android 程式碼和 Gradle 專案仍保存在 Git 歷史中；最後一個含完整 app 原始碼的提交是 [`49b30f2`](https://github.com/fyi100630/online-contact-book-android/tree/49b30f2)。本文件的功能與技術說明依該歷史版本整理。
-
 ## 功能
 
 - 檢視班級公告與事項：作業、考試／評量、繳交項目、重要提醒。
