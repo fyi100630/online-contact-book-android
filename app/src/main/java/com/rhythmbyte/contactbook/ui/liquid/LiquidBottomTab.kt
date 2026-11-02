@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.kyant.shapes.Capsule
+import com.kyant.shapes.RoundedCornerStyle
 
 internal val LocalLiquidBottomTabScale =
     staticCompositionLocalOf { { 1f } }
@@ -54,5 +55,9 @@ fun RowScope.LiquidBottomTab(
     )
 }
 
-/** 共用的膠囊形狀（shapes 1.2 的 Capsule 是類別，避免每次重畫都建立新物件） */
-internal val CapsuleShape = Capsule()
+/**
+ * 共用的膠囊形狀（shapes 1.2 的 Capsule 是類別，避免每次重畫都建立新物件）。
+ * 一定要用標準圓弧（Circular）：預設的 Continuous 會依長寬比改變圓頭的曲率，
+ * 長長的外框和短短的選取框的圓頭看起來就不一樣；標準圓弧是真正的半圓，兩層才會同心。
+ */
+internal val CapsuleShape = Capsule(RoundedCornerStyle.Circular)

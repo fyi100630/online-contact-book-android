@@ -85,6 +85,11 @@ class ApiIntegrationTest {
         assertEquals("App 改", api.updateTimetable(next).schedule[4][9])
         api.updateTimetable(tt.schedule)
 
+        // 行事曆（公開，不需要登入）
+        val cal = api.calendar()
+        assertEquals("2026-08-30", cal.firstDay)
+        assertTrue(cal.days.size > 50)
+
         // 安裝統計
         val before = api.installStats().total
         api.reportInstallation(UUID.randomUUID().toString(), "3.0.0")

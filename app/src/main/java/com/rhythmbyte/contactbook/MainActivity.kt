@@ -41,12 +41,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import com.rhythmbyte.contactbook.ui.AccountScreen
 import com.rhythmbyte.contactbook.ui.AnnouncementScreen
-import com.rhythmbyte.contactbook.ui.BoardScreen
 import com.rhythmbyte.contactbook.ui.Cb
 import com.rhythmbyte.contactbook.ui.ContactBookTheme
+import com.rhythmbyte.contactbook.ui.AccountActions
 import com.rhythmbyte.contactbook.ui.EditActions
+import com.rhythmbyte.contactbook.ui.MainScreen
 import com.rhythmbyte.contactbook.ui.MenuActions
 import com.rhythmbyte.contactbook.ui.TopBar
 import android.content.Intent
@@ -54,7 +54,6 @@ import android.net.Uri
 import com.rhythmbyte.contactbook.ui.DarkCb
 import com.rhythmbyte.contactbook.ui.InstallStatsScreen
 import com.rhythmbyte.contactbook.ui.LightCb
-import com.rhythmbyte.contactbook.ui.LoginScreen
 import com.rhythmbyte.contactbook.ui.TimetableEditScreen
 import com.rhythmbyte.contactbook.ui.linkify
 import kotlinx.coroutines.delay
@@ -104,20 +103,30 @@ fun App(vm: AppViewModel) {
     Box(Modifier.fillMaxSize().background(c.bg)) {
         val user = vm.user
         when (vm.screen) {
-            Screen.Board -> BoardScreen(
+            Screen.Board -> MainScreen(
                 board = vm.board, loading = vm.boardLoading, error = vm.boardError, user = user,
+                calendar = vm.calendar,
+                tab = vm.tab, onTab = { vm.tab = it },
                 onPick = { vm.loadBoard(it) },
                 onRefresh = { vm.loadBoard(vm.board?.date) },
-                onLogin = { vm.navigate(Screen.Login) },
+                onLoadCalendar = { vm.loadCalendar() },
+                account = AccountActions(
+                    login = { u, p -> vm.login(u, p) },
+                    changePassword = { cur, next -> vm.api.changePassword(cur, next); vm.onPasswordChanged() },
+                    signOutOthers = { vm.api.signOutOthers() },
+                    logout = { vm.logout() },
+                    onError = { vm.handle(it) },
+                    toast = { vm.toast(it) },
+                ),
                 menu = MenuActions(
-                    onAccount = { vm.navigate(Screen.Account) },
                     onAnnouncement = { vm.navigate(Screen.Announcement) },
                     onTimetable = { vm.navigate(Screen.Timetable) },
                     onStats = { vm.navigate(Screen.InstallStats) },
                     onWeb = { path -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.BASE_URL + path))) },
                     onCheckUpdate = { vm.checkUpdate(manual = true) },
-                    onLogout = { vm.logout() },
                 ),
+                version = BuildConfig.VERSION_NAME,
+                checkingUpdate = vm.checkingUpdate,
                 edit = EditActions(
                     load = { vm.loadForEdit(it) },
                     save = { entry, input -> if (entry == null) vm.api.createEntry(input) else vm.api.updateEntry(entry.id, entry.version, input) },
@@ -127,7 +136,6 @@ fun App(vm: AppViewModel) {
                     onChanged = { vm.loadBoard(vm.board?.date, silent = true) },
                 ),
             )
-            Screen.Login -> LoginScreen(onLogin = { u, p -> vm.login(u, p) }, onBack = { vm.back() })
             else -> {
                 if (user == null) {
                     // 登入過期或已登出
@@ -136,15 +144,6 @@ fun App(vm: AppViewModel) {
                     Screen.Announcement -> SubScreen("編輯公告", vm) { AnnouncementScreen(vm) }
                     Screen.Timetable -> SubScreen("編輯課表", vm) { TimetableEditScreen(vm) }
                     Screen.InstallStats -> SubScreen("App 安裝統計", vm) { InstallStatsScreen(vm) }
-                    Screen.Account -> AccountScreen(
-                        user = user,
-                        onChangePassword = { cur, next -> vm.api.changePassword(cur, next); vm.onPasswordChanged() },
-                        onSignOutOthers = { vm.api.signOutOthers() },
-                        onLogout = { vm.logout() },
-                        onBack = { if (!vm.back()) vm.home() },
-                        onError = { vm.handle(it) },
-                        onToast = { vm.toast(it) },
-                    )
                     else -> Unit
                 }
             }

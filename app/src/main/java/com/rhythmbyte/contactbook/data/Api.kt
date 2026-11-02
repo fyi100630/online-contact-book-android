@@ -156,6 +156,8 @@ class Api(
     suspend fun updateTimetable(schedule: List<List<String>>): TimetableData =
         call("PUT", "/api/timetable", buildJsonObject { put("schedule", json.encodeToJsonElement(schedule)) }, TimetableData.serializer())
 
+    suspend fun calendar(): CalendarData = call("GET", "/api/calendar", null, CalendarData.serializer())
+
     suspend fun installStats(): InstallStats = call("GET", "/api/installations", null, InstallStats.serializer())
 
     /** 安裝統計：只送隨機安裝 ID 和版本號 */

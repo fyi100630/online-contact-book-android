@@ -100,6 +100,28 @@ data class VersionCount(val version: String, val total: Int, val active30d: Int)
 @Serializable
 data class InstallStats(val total: Int, val active30d: Int, val versions: List<VersionCount>)
 
+/** 學期行事曆（來自學校公告的校曆，網站 /api/calendar） */
+@Serializable
+data class CalendarDay(
+    val date: String,
+    /** normal / holiday / exam */
+    val kind: String = "normal",
+    val label: String = "",
+    val events: List<String> = emptyList(),
+)
+
+@Serializable
+data class CalendarData(
+    val title: String,
+    val source: String = "",
+    val published: String = "",
+    /** 第 1 週的星期日 */
+    val firstDay: String,
+    val weeks: Int = 0,
+    val days: List<CalendarDay>,
+    val updatedAt: String? = null,
+)
+
 const val TIMETABLE_DAYS = 5
 const val TIMETABLE_PERIODS = 10
 const val TIMETABLE_CELL_MAX = 10

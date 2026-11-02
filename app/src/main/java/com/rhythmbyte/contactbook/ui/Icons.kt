@@ -50,5 +50,6 @@ object CbIcons {
     val Exam = line("exam", "M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z", "M14 3v5h5", "m9 14 2 2 4-4")
     val Inbox = line("inbox", "M4 13l2.5-7.5A2 2 0 0 1 8.4 4h7.2a2 2 0 0 1 1.9 1.5L20 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z", "M4 13h4l1.5 2.5h5L16 13h4")
     val Bell = line("bell", "M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z", "M10 20.5a2 2 0 0 0 4 0")
+    val Calendar2 = line("calendar-days", "M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z", "M4 10h16M8 3v4M16 3v4", "M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01")
     val Download = line("download", "M12 4v11M7 10l5 5 5-5M5 20h14")
 }

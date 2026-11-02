@@ -3,6 +3,7 @@ package com.rhythmbyte.contactbook
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -24,11 +25,21 @@ import java.util.UUID
 
 sealed interface Screen {
     data object Board : Screen
-    data object Login : Screen
     data object Announcement : Screen
     data object Timetable : Screen
     data object InstallStats : Screen
-    data object Account : Screen
+}
+
+/** 底欄四個分頁：0 聯絡簿、1 課表、2 行事曆、3 我的 */
+const val TAB_BOARD = 0
+const val TAB_TIMETABLE = 1
+const val TAB_CALENDAR = 2
+const val TAB_ME = 3
+
+sealed interface CalendarState {
+    data object Loading : CalendarState
+    data class Ready(val data: com.rhythmbyte.contactbook.data.CalendarData) : CalendarState
+    data class Failed(val message: String) : CalendarState
 }
 
 data class Toast(val text: String, val error: Boolean = false)
@@ -48,11 +59,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stack = stack + s
     }
 
-    /** 換掉目前這一層（例如登入後直接進後台，返回鍵不會回到登入頁） */
-    fun replace(s: Screen) {
-        stack = stack.dropLast(1) + s
-    }
-
     fun back(): Boolean {
         if (stack.size <= 1) return false
         stack = stack.dropLast(1)
@@ -62,6 +68,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun home() {
         stack = listOf(Screen.Board)
         loadBoard(board?.date, silent = true)
+    }
+
+    // ---- 底欄分頁 ----
+    var tab by mutableIntStateOf(TAB_BOARD)
+
+    // ---- 學期行事曆（第一次看到「行事曆」分頁才讀取）----
+    var calendar by mutableStateOf<CalendarState>(CalendarState.Loading)
+        private set
+    private var calendarLoaded = false
+
+    fun loadCalendar(force: Boolean = false) {
+        if (calendarLoaded && !force && calendar is CalendarState.Ready) return
+        calendarLoaded = true
+        calendar = CalendarState.Loading
+        viewModelScope.launch {
+            calendar = try {
+                CalendarState.Ready(api.calendar())
+            } catch (e: ApiException) {
+                calendarLoaded = false
+                CalendarState.Failed(
+                    if (e.status == 404) "網站還沒有行事曆資料。請管理員到 Supabase 執行 db/migrations/002_calendar.sql。" else e.message ?: "讀取失敗",
+                )
+            }
+        }
     }
 
     // ---- 訊息 ----
@@ -117,14 +147,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val u = api.account() ?: throw ApiException(401, "登入失敗，請再試一次")
         user = u
         // 沒有「管理後台」了：登入後回到聯絡簿，直接在上面編輯
-        if (u.mustChangePassword) replace(Screen.Account) else home()
-        toast("已登入，點事項就能修改，按＋新增")
+        if (u.mustChangePassword) {
+            tab = TAB_ME
+        } else {
+            tab = TAB_BOARD
+            toast("已登入，點事項就能修改，按＋新增")
+        }
     }
 
     fun onPasswordChanged() {
         viewModelScope.launch {
             runCatching { api.account() }.onSuccess { user = it }
-            if (user?.mustChangePassword == false && stack.size == 2 && screen == Screen.Account) home()
+            if (user?.mustChangePassword == false) tab = TAB_BOARD
         }
     }
 
@@ -133,18 +167,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { api.logout() }
             cookies.clear()
             user = null
-            home()
+            stack = listOf(Screen.Board)
             toast("已登出")
         }
     }
 
-    /** 後台操作失敗時的共同處理：登入過期就回登入頁 */
     /** 點聯絡簿上的事項：拿那一天所有事項（含版本號），找出這一筆 */
     suspend fun loadForEdit(e: com.rhythmbyte.contactbook.data.PublicEntry): ManagedEntry? {
         val day = board?.date ?: e.entryDate
         return api.entries(day, day, null, null).firstOrNull { it.id == e.id }
     }
 
+    /** 操作失敗時的共同處理：登入過期就回到「我的」分頁重新登入 */
     fun handle(e: Throwable): String {
         val msg = e.message ?: "發生錯誤，請稍後再試"
         if (e is ApiException) {
@@ -152,11 +186,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 e.status == 401 -> {
                     cookies.clear()
                     user = null
-                    stack = listOf(Screen.Board, Screen.Login)
+                    stack = listOf(Screen.Board)
+                    tab = TAB_ME
                     toast("登入已過期，請重新登入", error = true)
                 }
                 e.code == "must_change_password" -> {
-                    stack = listOf(Screen.Board, Screen.Account)
+                    stack = listOf(Screen.Board)
+                    tab = TAB_ME
                     toast(msg, error = true)
                 }
                 else -> toast(msg, error = true)
