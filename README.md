@@ -58,7 +58,7 @@
 
 ## 開發
 
-需要 JDK 17 以上、Android SDK（compileSdk 36）。
+需要 JDK 21、Android SDK（compileSdk 36）。（單元測試用的 Robolectric 模擬 Android 15，要 JDK 21；App 本身編譯成 Java 17 的 bytecode。）
 
 ```bash
 ./gradlew :app:assembleDebug          # 編譯
