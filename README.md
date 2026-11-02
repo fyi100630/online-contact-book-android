@@ -45,7 +45,7 @@
 3. GitHub Actions 會用舊 App 的同一把金鑰簽章，並**檢查簽章和 v2.0.0 一樣**（不一樣就失敗，避免大家裝不上去），然後建立**草稿** Release
 4. 到 GitHub → Releases 確認後按 **Publish**。舊 App（v2.0.0）打開時就會跳出更新通知
 
-需要先在 repo 的 **Settings → Secrets and variables → Actions** 加這四個 secret：
+需要先在 repo 的 **Settings → Secrets and variables → Actions** 加這四個 secret（設好後，到 **Actions → Verify signing key → Run workflow** 可以先驗證密碼、別名、簽章是否和 v2.0.0 相同，不會發布任何東西）：
 
 | Name | 內容 |
 | --- | --- |
