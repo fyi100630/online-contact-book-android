@@ -29,6 +29,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -119,9 +122,31 @@ fun MainScreen(
     var editor by remember { mutableStateOf<EditorState?>(null) }
     val reveal = remember { Animatable(0f) }
 
-    // 外面（登入過期、點底欄）改了分頁就捲過去；使用者滑動後再回報給外面
-    LaunchedEffect(tab) { if (pager.currentPage != tab) pager.animateScrollToPage(tab) }
-    LaunchedEffect(pager.settledPage) { if (pager.settledPage != tab) onTab(pager.settledPage) }
+    // 「目前要看哪一頁」只有一個來源：tab（外面的狀態）。
+    //  - 點底欄、登入過期等改了 tab → pager 用動畫捲過去（程式捲動）。
+    //  - 使用者用手指滑動 pager → 滑到新的一頁時回報給 tab。
+    // 程式捲動途中 pager.currentPage 會依序經過中間的頁（例如 1 → 2 → 3），這時一定不能回報，
+    // 否則會把目標改成中間那一頁（以前就是這樣：按第 4 格只會到第 3 格，快速連按會卡住）。
+    val latestTab = rememberUpdatedState(tab)
+    val latestOnTab = rememberUpdatedState(onTab)
+    val selectedIndex = remember { { latestTab.value } }            // 給玻璃底欄用，要固定同一個函式
+    val onSelectIndex = remember { { i: Int -> latestOnTab.value(i) } }
+    val programmaticScrolls = remember { intArrayOf(0) }
+    LaunchedEffect(tab) {
+        if (pager.currentPage != tab) {
+            programmaticScrolls[0]++
+            try {
+                pager.animateScrollToPage(tab)
+            } finally {
+                programmaticScrolls[0]--
+            }
+        }
+    }
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.currentPage }.collect { page ->
+            if (programmaticScrolls[0] == 0 && page != latestTab.value) latestOnTab.value(page)
+        }
+    }
     LaunchedEffect(pager.currentPage) { if (pager.currentPage == TAB_CALENDAR) onLoadCalendar() }
 
     fun openEditor(state: EditorState) {
@@ -136,7 +161,7 @@ fun MainScreen(
         if (changed) edit?.onChanged?.invoke()
     }
     BackHandler(enabled = editor != null) { closeEditor() }
-    BackHandler(enabled = editor == null && pager.currentPage != TAB_BOARD) { onTab(TAB_BOARD) }
+    BackHandler(enabled = editor == null && tab != TAB_BOARD) { onTab(TAB_BOARD) }
 
     Box(Modifier.fillMaxSize().background(c.bg)) {
         Column(Modifier.fillMaxSize().layerBackdrop(backdrop).background(c.bg)) {
@@ -176,8 +201,8 @@ fun MainScreen(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             LiquidBottomTabs(
-                selectedTabIndex = { pager.currentPage },
-                onTabSelected = onTab,
+                selectedTabIndex = selectedIndex,
+                onTabSelected = onSelectIndex,
                 backdrop = backdrop,
                 tabsCount = TABS.size,
                 modifier = Modifier.weight(1f),
@@ -236,7 +261,7 @@ private fun BrandBar(title: String) {
 @Composable
 private fun RowScope.BottomTab(label: String, icon: ImageVector, onClick: () -> Unit) {
     val c = Cb.c
-    LiquidBottomTab(onClick) {
+    LiquidBottomTab(onClick, Modifier.testTag("tab-$label")) {
         Icon(icon, null, tint = c.ink, modifier = Modifier.size(22.dp))
         Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = c.ink, maxLines = 1)
     }
