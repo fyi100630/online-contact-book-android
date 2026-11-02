@@ -2,9 +2,9 @@
 
 > ⚠️ **目前維護中，暫停使用。** 請改用網頁版：<https://online-contact-book.vercel.app>
 >
-> 網頁版已改為帳號密碼制並更換資料庫結構（見 [online-contact-book](https://github.com/fyi100630/online-contact-book) 的 `docs/SETUP.md`）。
-> 舊資料庫已由 `supabase/01_legacy_lockdown.sql` 關閉所有寫入權限，已安裝的 App 打開後只會看到維護公告，無法新增或修改資料。
-> 之後若要恢復 Android 版，需改接新版 `cb_entries` / `cb_settings` 資料表與 Supabase Auth 登入。
+> 網頁版已重新開發為帳號密碼制，資料改由網站伺服器統一存取（見 [online-contact-book](https://github.com/fyi100630/online-contact-book) 的 `docs/SETUP.md`）。
+> 舊資料庫已由 `db/legacy/01_legacy_lockdown.sql` 關閉所有寫入權限，已安裝的 App 打開後只會看到維護公告，無法新增或修改資料。
+> 之後若要恢復 Android 版，App 應改為呼叫網站的 `/api` 並使用幹部帳號登入，不能再直接連資料庫或在 App 內放任何金鑰、密碼。
 
 以 Kotlin 與 Jetpack Compose 開發的 Android 班級聯絡簿，透過 Supabase 讀取班級公告與各類事項。
 
