@@ -1,0 +1,81 @@
+name: Android
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests
+        run: ./gradlew --no-daemon :app:testDebugUnitTest
+      - name: Build (unsigned)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+  # 推 v3.0.0 這種 tag 時：用舊 App 的同一把金鑰簽章，建立「草稿」Release。
+  # 確認沒問題後，到 GitHub 的 Releases 頁面按 Publish，舊 App 才會跳出更新通知。
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tag must match versionName
+        run: |
+          v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != versionName $v"; exit 1; }
+
+      - name: Restore keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          [ -n "$KEYSTORE_BASE64" ] || { echo "缺少 secrets.KEYSTORE_BASE64"; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Build signed APK
+        env:
+          SIGNING_STORE_FILE: ${{ runner.temp }}/release.jks
+          SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew --no-daemon :app:assembleRelease
+
+      - name: Signature must match the old app (so users can update in place)
+        run: |
+          apksigner="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          new=app/build/outputs/apk/release/app-release.apk
+          curl -fsSL -o old.apk "https://github.com/${GITHUB_REPOSITORY}/releases/download/v2.0.0/app-release.apk"
+          cert() { "$apksigner" verify --print-certs "$1" | grep -m1 'SHA-256 digest' | awk '{print $NF}'; }
+          echo "old: $(cert old.apk)"; echo "new: $(cert "$new")"
+          [ -n "$(cert "$new")" ] && [ "$(cert old.apk)" = "$(cert "$new")" ] || { echo "簽章和 v2.0.0 不同，舊 App 無法直接更新"; exit 1; }
+          rm -f old.apk "$RUNNER_TEMP/release.jks"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" app/build/outputs/apk/release/app-release.apk \
+            --draft --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md

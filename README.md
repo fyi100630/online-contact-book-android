@@ -1,38 +1,74 @@
 # 線上班級聯絡簿（Android）
 
-以 Kotlin 與 Jetpack Compose 開發的 Android 班級聯絡簿，透過 Supabase 讀取班級公告與各類事項。
+[網頁版聯絡簿](https://online-contact-book.vercel.app) 的原生 Android App（Kotlin＋Jetpack Compose）。
+學生、家長不用登入就能看每天的作業、考試、繳交、提醒和課表；幹部與小老師登入後可以編輯。
+
+> v3 是重寫的版本。v2 以前的程式（直接連 Supabase）已經停用，原始碼保留在 Git 歷史（commit `40eb479`）。
+
+## 和網頁版的關係
+
+- App **只呼叫網站的 `/api`**，不直接連資料庫，APK 裡**沒有任何金鑰**。
+  權限全部由伺服器依登入的帳號判斷，App 只是另一個畫面。
+- 帳號就是網頁版的帳號（管理員在網頁版「帳號管理」建立）。第一次登入要先改密碼。
+- 日期規則（`data/Dates.kt`）和網頁版 `src/lib/shared/dates.ts` 一樣，有單元測試確保一致。
 
 ## 功能
 
-- 檢視班級公告與事項：作業、考試／評量、繳交項目、重要提醒。
-- 編輯聯絡簿內容；管理者介面另有公告管理與歷史紀錄還原功能。
-- 透過 Supabase Realtime 接收資料變更，更新畫面。
-- 檢查 GitHub Releases 並提供 App 內更新流程。
-- 回報隨機安裝 ID、App 版本與最後連線時間，用於安裝版本統計。
+| | 訪客 | 幹部與小老師 | 管理員 |
+| --- | :-: | :-: | :-: |
+| 看聯絡簿、課表 | ✅ | ✅ | ✅ |
+| 新增、修改、刪除事項 | | ✅ | ✅ |
+| 改公告、課表，看 App 安裝統計 | | | ✅ |
+| 帳號管理、修改紀錄、垃圾桶、備份 | | | 在網頁版（App 會開瀏覽器） |
 
-## 技術與需求
+- 每 60 秒檢查一次有沒有人更新，有就自動重新整理；也可以下拉重新整理
+- 登入狀態用伺服器的 session cookie，加密保存在手機（Android Keystore）
+- App 內更新：讀這個 repo 的 GitHub Releases，下載 `app-release.apk` 交給系統安裝
+- 安裝統計：每天回報一次隨機安裝 ID＋版本號，不含任何個人資料
 
-- Kotlin 2.1、Jetpack Compose、Material 3
-- Android Gradle Plugin 8.13、JDK 17
-- `minSdk 26`（Android 8.0）；歷史版本使用 `compileSdk 35`
-- Supabase Kotlin SDK（PostgREST、Realtime）、Ktor、Android DataStore
+## 發布新版
 
+1. 修改 `app/build.gradle.kts` 的 `versionCode`（+1 以上）和 `versionName`，更新 `RELEASE_NOTES.md`
+2. 推一個和 versionName 一樣的 tag，例如 `v3.0.0`
+3. GitHub Actions 會用舊 App 的同一把金鑰簽章，並**檢查簽章和 v2.0.0 一樣**（不一樣就失敗，避免大家裝不上去），然後建立**草稿** Release
+4. 到 GitHub → Releases 確認後按 **Publish**。舊 App（v2.0.0）打開時就會跳出更新通知
 
-## 後端資料
+需要先在 repo 的 **Settings → Secrets and variables → Actions** 加這四個 secret：
 
-歷史程式會使用以下 Supabase 資料表：
+| Name | 內容 |
+| --- | --- |
+| `KEYSTORE_BASE64` | keystore 檔轉成 base64：`base64 -w0 你的.jks`（macOS：`base64 -i 你的.jks`） |
+| `KEYSTORE_PASSWORD` | keystore 密碼 |
+| `KEY_ALIAS` | 金鑰別名 |
+| `KEY_PASSWORD` | 金鑰密碼 |
 
-- `contact_book`：班級標題、公告與聯絡簿事項
-- `contact_book_logs`：內容變更歷史
-- `app_installations`：安裝 ID、App 版本與最後回報時間
+> keystore 檔和密碼**絕對不要** commit 進 Git。`.gitignore` 已經擋掉 `*.jks`、`*.keystore`、`keystore.properties`。
 
-資料表 schema 與 Row Level Security（RLS）政策未包含在目前倉庫中。部署前請自行建立 schema，並確認訪客、編輯者與管理者各自能讀寫的資料範圍。
+## 開發
 
-## 開源前請先處理
+需要 JDK 17 以上、Android SDK（compileSdk 36）。
 
-- 歷史程式將編輯／管理密碼放在 Android 客戶端，登入角色也儲存在裝置上。這只能當介面鎖定，不能當後端授權；請移除或更換這套機制，改由後端驗證並以 RLS 限制資料存取。若舊密碼仍在使用，請先更換。
-- App 會回報隨機安裝 ID、版本與時間。公開前請確認這項統計是否仍需要，並在隱私說明中揭露。
-- 目前倉庫沒有本專案的 `LICENSE`。請由著作權人決定授權並加入授權檔；公開可見不等於取得任意使用、修改或散布的授權。
-- 歷史原始碼包含 `com.kyant` 與 `com.kyant.shapes` 套件的上游程式碼。復原或重新發布時，請保留並檢查上游 [Apache-2.0 授權](https://github.com/Kyant0/AndroidLiquidGlass/blob/master/LICENSE)及必要的第三方聲明。
-- 確認 Supabase 金鑰只使用適合放在客戶端的公開金鑰，絕不可把 `service_role` 金鑰、簽署金鑰或其他伺服器密鑰提交到 Git。
+```bash
+./gradlew :app:assembleDebug          # 編譯
+./gradlew :app:testDebugUnitTest      # 單元測試（日期規則、版本比較）
 
+# 對本機網站跑 API 整合測試（網站要有管理員 boss / boss-password-123）
+CB_TEST_BASE=http://localhost:3100 ./gradlew :app:testDebugUnitTest
+
+# 產生畫面截圖到 app/build/screenshots/（Robolectric，不需要模擬器）
+CB_SCREENSHOTS=1 ./gradlew :app:testDebugUnitTest
+```
+
+本機簽章：在專案根目錄建立 `keystore.properties`（已被 .gitignore 排除）：
+
+```properties
+storeFile=/絕對路徑/release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+## 技術
+
+Kotlin 2.2、Jetpack Compose（Material 3）、OkHttp、kotlinx.serialization。`minSdk 26`（Android 8.0）、`targetSdk 36`。
+套件名稱 `com.rhythmbyte.contactbook`，和舊版相同。

@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.kotlin/
+# 簽章金鑰絕對不能進 Git
+*.jks
+*.keystore
+keystore.properties
