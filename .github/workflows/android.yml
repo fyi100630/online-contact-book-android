@@ -5,6 +5,8 @@ on:
     branches: ['**']
     tags: ['v*']
   pull_request:
+  # 發布：到 Actions → Android → Run workflow（選 main）。不需要推 tag，手機上就能按
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -26,10 +28,11 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: ./gradlew --no-daemon :app:assembleRelease
 
-  # 推 v3.0.0 這種 tag 時：用舊 App 的同一把金鑰簽章，建立「草稿」Release。
+  # 推 v3.0.0 這種 tag，或在 main 上手動按 Run workflow 時：
+  # 用舊 App 的同一把金鑰簽章，建立「草稿」Release（版本號取自 app/build.gradle.kts 的 versionName）。
   # 確認沒問題後，到 GitHub 的 Releases 頁面按 Publish，舊 App 才會跳出更新通知。
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -43,10 +46,18 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Tag must match versionName
+      - name: Work out the release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
-          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != versionName $v"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::tag $GITHUB_REF_NAME 和 versionName $v 不一樣"; exit 1; }
+          fi
+          if gh release view "v$v" >/dev/null 2>&1; then
+            echo "::error::v$v 已經有 Release 了（要發新版請先把 versionCode / versionName 加大）"; exit 1
+          fi
+          echo "TAG=v$v" >> "$GITHUB_ENV"
 
       - name: Restore keystore
         env:
@@ -77,5 +88,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" app/build/outputs/apk/release/app-release.apk \
-            --draft --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+          gh release create "$TAG" app/build/outputs/apk/release/app-release.apk \
+            --draft --title "$TAG" --notes-file RELEASE_NOTES.md --target "$GITHUB_SHA"
