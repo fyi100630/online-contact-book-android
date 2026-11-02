@@ -56,6 +56,11 @@ import com.rhythmbyte.contactbook.data.Dates
 import com.rhythmbyte.contactbook.data.Priority
 import com.rhythmbyte.contactbook.data.PublicEntry
 import com.rhythmbyte.contactbook.data.TIMETABLE_PERIODS
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.rhythmbyte.contactbook.ui.liquid.LiquidBottomTab
+import com.rhythmbyte.contactbook.ui.liquid.LiquidBottomTabs
+import com.rhythmbyte.contactbook.ui.liquid.LiquidButton
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,9 +73,15 @@ fun BoardScreen(
     onRefresh: () -> Unit,
     onLogin: () -> Unit,
     onManage: () -> Unit,
+    canEdit: Boolean = false,
+    onAdd: () -> Unit = {},
 ) {
     val c = Cb.c
-    Column(Modifier.fillMaxSize().background(c.bg)) {
+    // 0 = 全部，1～4 = 作業、考試、繳交、提醒（和舊版一樣用底部玻璃分頁切換）
+    var tab by rememberSaveable { mutableStateOf(0) }
+    val backdrop = rememberLayerBackdrop()
+    Box(Modifier.fillMaxSize().background(c.bg)) {
+    Column(Modifier.fillMaxSize().layerBackdrop(backdrop).background(c.bg)) {
         BrandBar(board?.classTitle ?: "班級聯絡簿", signedIn, onLogin, onManage)
         if (board == null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -88,8 +99,53 @@ fun BoardScreen(
             return@Column
         }
         PullToRefreshBox(isRefreshing = loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-            BoardList(board, onPick)
+            BoardList(board, onPick, if (tab == 0) null else Category.entries[tab - 1])
         }
+    }
+    if (board != null) {
+        Row(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            LiquidBottomTabs(
+                selectedTabIndex = { tab },
+                onTabSelected = { tab = it },
+                backdrop = backdrop,
+                tabsCount = 5,
+                modifier = Modifier.weight(1f),
+            ) {
+                val counts = Category.entries.map { cat -> board.entries.count { it.category == cat } }
+                BottomTab("全部", board.entries.size, CbIcons.All) { tab = 0 }
+                Category.entries.forEachIndexed { i, cat ->
+                    BottomTab(cat.short, counts[i], CATEGORY_ICONS.getValue(cat)) { tab = i + 1 }
+                }
+            }
+            if (canEdit) {
+                LiquidButton(onAdd, backdrop, Modifier.size(64.dp), surfaceColor = c.surface.copy(alpha = 0.4f)) {
+                    Icon(CbIcons.Plus, "新增事項", tint = c.ink, modifier = Modifier.size(26.dp))
+                }
+            }
+        }
+    }
+    }
+}
+
+private val CATEGORY_ICONS = mapOf(
+    Category.HOMEWORK to CbIcons.Pencil,
+    Category.EXAM to CbIcons.Exam,
+    Category.SUBMISSION to CbIcons.Inbox,
+    Category.REMINDER to CbIcons.Bell,
+)
+
+@Composable
+private fun androidx.compose.foundation.layout.RowScope.BottomTab(label: String, count: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    val c = Cb.c
+    LiquidBottomTab(onClick, Modifier.semantics { contentDescription = "$label，$count 項" }) {
+        Box {
+            Icon(icon, null, tint = c.ink, modifier = Modifier.size(22.dp))
+        }
+        Text(if (count > 0) "$label $count" else label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = c.ink, maxLines = 1)
     }
 }
 
@@ -111,19 +167,19 @@ private fun BrandBar(title: String, signedIn: Boolean, onLogin: () -> Unit, onMa
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun BoardList(board: BoardData, onPick: (String) -> Unit) {
+fun BoardList(board: BoardData, onPick: (String) -> Unit, filter: Category?) {
     val c = Cb.c
-    var filter by rememberSaveable { mutableStateOf<Category?>(null) }
     var showDate by remember { mutableStateOf(false) }
     var showWeek by remember { mutableStateOf(false) }
     val counts = Category.entries.associateWith { cat -> board.entries.count { it.category == cat } }
     val shown = board.entries.filter { filter == null || it.category == filter }
-    val groups = (if (filter == null) Category.entries.filter { (counts[it] ?: 0) > 0 } else listOf(filter!!))
+    val groups = (if (filter == null) Category.entries.filter { (counts[it] ?: 0) > 0 } else listOf(filter))
         .map { cat -> cat to shown.filter { it.category == cat } }
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 48.dp),
+        // 底部留空間給玻璃分頁列
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 120.dp),
     ) {
         item(key = "hero") { Hero(board, onToday = { onPick(board.today) }, onPickDate = { showDate = true }) }
         item(key = "week") { WeekStrip(board, onPick) }
@@ -133,15 +189,10 @@ fun BoardList(board: BoardData, onPick: (String) -> Unit) {
         board.timetable?.let { tt ->
             item(key = "classes") { DayClasses(tt, board.date, onWeek = { showWeek = true }) }
         }
-        item(key = "filters") {
-            FlowRow(Modifier.padding(top = 20.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip("全部", filter == null, { filter = null }, board.entries.size)
-                Category.entries.forEach { cat -> FilterChip(cat.short, filter == cat, { filter = cat }, counts[cat]) }
-            }
-        }
+        item(key = "gap") { Spacer(Modifier.height(4.dp)) }
         if (shown.isEmpty()) {
             item(key = "empty") {
-                EmptyState(if (filter == null) "這天沒有登記事項" else "這天沒有${filter!!.short}", "用上面的週曆看看其他天")
+                EmptyState(if (filter == null) "這天沒有登記事項" else "這天沒有${filter.short}", "用上面的週曆看看其他天")
             }
         } else {
             groups.forEach { (cat, list) ->

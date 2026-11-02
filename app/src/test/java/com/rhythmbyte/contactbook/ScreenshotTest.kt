@@ -76,7 +76,8 @@ class ScreenshotTest {
     )
 
     @Test fun board() = shot("01-board") { BoardScreen(board, false, null, false, {}, {}, {}, {}) }
-    @Test fun boardDark() = shot("02-board-dark", dark = true) { BoardScreen(board, false, null, true, {}, {}, {}, {}) }
+    @Test fun boardEditor() = shot("01b-board-editor") { BoardScreen(board, false, null, true, {}, {}, {}, {}, canEdit = true) }
+    @Test fun boardDark() = shot("02-board-dark", dark = true) { BoardScreen(board, false, null, true, {}, {}, {}, {}, canEdit = true) }
     @Test fun boardWeekend() = shot("03-board-weekend") {
         BoardScreen(board.copy(date = "2026-11-07", entries = emptyList(), announcement = ""), false, null, false, {}, {}, {}, {})
     }

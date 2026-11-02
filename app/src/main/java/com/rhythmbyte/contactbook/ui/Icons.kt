@@ -44,5 +44,11 @@ object CbIcons {
     val Phone = line("phone", "M9 2.5h6a2.5 2.5 0 0 1 2.5 2.5v14a2.5 2.5 0 0 1-2.5 2.5H9A2.5 2.5 0 0 1 6.5 19V5A2.5 2.5 0 0 1 9 2.5z", "M11 18.5h2")
     val External = line("external", "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5")
     val Shield = line("shield", "M12 3 4.5 6v6c0 4.5 3.2 8 7.5 9 4.3-1 7.5-4.5 7.5-9V6z", "m9 12 2 2 4-4")
+    // 底部分頁：全部／作業／考試／繳交／提醒
+    val All = line("all", "M4 5.5h16M4 12h16M4 18.5h16")
+    val Pencil = line("pencil", "M4 20h4L19 9l-4-4L4 16z", "m13.5 6.5 4 4")
+    val Exam = line("exam", "M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z", "M14 3v5h5", "m9 14 2 2 4-4")
+    val Inbox = line("inbox", "M4 13l2.5-7.5A2 2 0 0 1 8.4 4h7.2a2 2 0 0 1 1.9 1.5L20 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z", "M4 13h4l1.5 2.5h5L16 13h4")
+    val Bell = line("bell", "M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z", "M10 20.5a2 2 0 0 0 4 0")
     val Download = line("download", "M12 4v11M7 10l5 5 5-5M5 20h14")
 }

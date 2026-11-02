@@ -110,6 +110,8 @@ fun App(vm: AppViewModel) {
                 onRefresh = { vm.loadBoard(vm.board?.date) },
                 onLogin = { vm.navigate(Screen.Login) },
                 onManage = { vm.navigate(if (user?.mustChangePassword == true) Screen.Account else Screen.Entries) },
+                canEdit = user != null && !user.mustChangePassword,
+                onAdd = { vm.navigate(Screen.EditEntry(null)) },
             )
             Screen.Login -> LoginScreen(onLogin = { u, p -> vm.login(u, p) }, onBack = { vm.back() })
             else -> {

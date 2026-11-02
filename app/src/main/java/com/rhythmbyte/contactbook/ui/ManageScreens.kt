@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +75,11 @@ import com.rhythmbyte.contactbook.data.SessionUser
 import com.rhythmbyte.contactbook.data.TIMETABLE_CELL_MAX
 import com.rhythmbyte.contactbook.data.TimetableData
 import kotlinx.coroutines.launch
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberCanvasBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.rhythmbyte.contactbook.ui.liquid.LiquidButton
+import com.rhythmbyte.contactbook.ui.liquid.LiquidToggle
 
 // =====================================================================
 // 後台外框：左側抽屜選單（和網頁版手機的側邊欄一樣）
@@ -208,8 +214,10 @@ fun EntriesContent(
     onRange: (Range) -> Unit,
     onOpen: (ManagedEntry?) -> Unit,
 ) {
+    val c = Cb.c
+    val backdrop = rememberLayerBackdrop()
     Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp)) {
+        LazyColumn(Modifier.fillMaxSize().layerBackdrop(backdrop).background(c.bg), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp)) {
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     CbTextField(q, onQ, placeholder = "搜尋內容、科目…", leading = CbIcons.Search, maxLength = 50)
@@ -231,10 +239,14 @@ fun EntriesContent(
                 else -> items(entries, key = { it.id }) { e -> ManagedRow(e, today) { onOpen(e) } }
             }
         }
-        CbButton(
-            "新增事項", { onOpen(null) }, icon = CbIcons.Plus,
-            modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp),
-        )
+        LiquidButton(
+            { onOpen(null) }, backdrop,
+            Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp),
+            tint = c.primary,
+        ) {
+            Icon(CbIcons.Plus, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Text("新增事項", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -367,9 +379,10 @@ fun EntryEditor(
                 }
                 Text("有截止日：每天都會顯示，直到截止日前一天。沒有：只在登記日當天顯示。", fontSize = 12.sp, color = c.ink3)
             }
-            Row(Modifier.fillMaxWidth().clickable { important = !important }, verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(important, { important = it }, colors = CheckboxDefaults.colors(checkedColor = c.primary))
-                Text("標為重要（排在最前面）", fontSize = 15.sp, color = c.ink)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("標為重要（排在最前面）", Modifier.weight(1f), fontSize = 15.sp, color = c.ink)
+                val bg = c.bg
+                LiquidToggle({ important }, { important = it }, rememberCanvasBackdrop { drawRect(bg) })
             }
             if (entry != null) {
                 Text("由 ${entry.createdByName ?: "—"} 建立；最後由 ${entry.updatedByName ?: "—"} 在 ${timeAgo(entry.updatedAt)}修改", fontSize = 12.sp, color = c.ink3)

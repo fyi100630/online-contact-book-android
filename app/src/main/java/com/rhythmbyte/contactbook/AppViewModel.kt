@@ -163,6 +163,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---- 安裝統計：只送隨機 ID＋版本號，一天最多一次 ----
     private fun reportInstallation() {
+        if (BuildConfig.BUILD_TYPE != "release") return // 測試版不算進統計
         val now = System.currentTimeMillis()
         val last = prefs.getLong("install_reported_at", 0L)
         val lastVersion = prefs.getString("install_reported_version", null)

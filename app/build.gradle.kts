@@ -34,6 +34,7 @@ android {
         // 只有網址，沒有任何金鑰。所有資料都經過網站的 /api。
         buildConfigField("String", "BASE_URL", "\"https://online-contact-book.vercel.app\"")
         buildConfigField("String", "GITHUB_REPO", "\"fyi100630/online-contact-book-android\"")
+        manifestPlaceholders["appLabel"] = "@string/app_name"
     }
 
     signingConfigs {
@@ -53,6 +54,16 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasSigning) signingConfig = signingConfigs.getByName("release")
+        }
+        // 測試版：和正式版一樣最佳化，但用 debug 金鑰簽章、換套件名稱，
+        // 可以和舊 App 同時安裝。不回報安裝統計。
+        create("preview") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            manifestPlaceholders["appLabel"] = "聯絡簿（測試版）"
+            matchingFallbacks += listOf("release")
         }
     }
 
@@ -95,7 +106,7 @@ kotlin {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2025.12.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.02.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
@@ -108,6 +119,10 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
+
+    // LiquidGlass 玻璃效果（Kyant0/AndroidLiquidGlass，Apache-2.0）
+    implementation("io.github.kyant0:backdrop:1.0.6")
+    implementation("io.github.kyant0:shapes:1.2.0")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
