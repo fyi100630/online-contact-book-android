@@ -25,8 +25,6 @@ import java.util.UUID
 sealed interface Screen {
     data object Board : Screen
     data object Login : Screen
-    data object Entries : Screen
-    data class EditEntry(val entry: ManagedEntry?) : Screen
     data object Announcement : Screen
     data object Timetable : Screen
     data object InstallStats : Screen
@@ -118,13 +116,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         api.login(username.trim(), password)
         val u = api.account() ?: throw ApiException(401, "登入失敗，請再試一次")
         user = u
-        replace(if (u.mustChangePassword) Screen.Account else Screen.Entries)
+        // 沒有「管理後台」了：登入後回到聯絡簿，直接在上面編輯
+        if (u.mustChangePassword) replace(Screen.Account) else home()
+        toast("已登入，點事項就能修改，按＋新增")
     }
 
     fun onPasswordChanged() {
         viewModelScope.launch {
             runCatching { api.account() }.onSuccess { user = it }
-            if (stack.size == 2 && screen == Screen.Account) replace(Screen.Entries)
+            if (user?.mustChangePassword == false && stack.size == 2 && screen == Screen.Account) home()
         }
     }
 
@@ -139,6 +139,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** 後台操作失敗時的共同處理：登入過期就回登入頁 */
+    /** 點聯絡簿上的事項：拿那一天所有事項（含版本號），找出這一筆 */
+    suspend fun loadForEdit(e: com.rhythmbyte.contactbook.data.PublicEntry): ManagedEntry? {
+        val day = board?.date ?: e.entryDate
+        return api.entries(day, day, null, null).firstOrNull { it.id == e.id }
+    }
+
     fun handle(e: Throwable): String {
         val msg = e.message ?: "發生錯誤，請稍後再試"
         if (e is ApiException) {

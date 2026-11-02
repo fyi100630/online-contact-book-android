@@ -28,7 +28,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,13 +46,15 @@ import com.rhythmbyte.contactbook.ui.AnnouncementScreen
 import com.rhythmbyte.contactbook.ui.BoardScreen
 import com.rhythmbyte.contactbook.ui.Cb
 import com.rhythmbyte.contactbook.ui.ContactBookTheme
+import com.rhythmbyte.contactbook.ui.EditActions
+import com.rhythmbyte.contactbook.ui.MenuActions
+import com.rhythmbyte.contactbook.ui.TopBar
+import android.content.Intent
+import android.net.Uri
 import com.rhythmbyte.contactbook.ui.DarkCb
-import com.rhythmbyte.contactbook.ui.EntriesScreen
-import com.rhythmbyte.contactbook.ui.EntryEditScreen
 import com.rhythmbyte.contactbook.ui.InstallStatsScreen
 import com.rhythmbyte.contactbook.ui.LightCb
 import com.rhythmbyte.contactbook.ui.LoginScreen
-import com.rhythmbyte.contactbook.ui.ManageShell
 import com.rhythmbyte.contactbook.ui.TimetableEditScreen
 import com.rhythmbyte.contactbook.ui.linkify
 import kotlinx.coroutines.delay
@@ -78,8 +79,7 @@ fun App(vm: AppViewModel) {
     val c = Cb.c
     val snackbar = remember { SnackbarHostState() }
     var toastIsError by remember { mutableStateOf(false) }
-    // 事項列表在「新增／編輯／刪除」之後要重新載入
-    var entriesVersion by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     LaunchedEffect(Unit) {
@@ -103,33 +103,45 @@ fun App(vm: AppViewModel) {
 
     Box(Modifier.fillMaxSize().background(c.bg)) {
         val user = vm.user
-        when (val s = vm.screen) {
+        when (vm.screen) {
             Screen.Board -> BoardScreen(
-                board = vm.board, loading = vm.boardLoading, error = vm.boardError, signedIn = user != null,
+                board = vm.board, loading = vm.boardLoading, error = vm.boardError, user = user,
                 onPick = { vm.loadBoard(it) },
                 onRefresh = { vm.loadBoard(vm.board?.date) },
                 onLogin = { vm.navigate(Screen.Login) },
-                onManage = { vm.navigate(if (user?.mustChangePassword == true) Screen.Account else Screen.Entries) },
-                canEdit = user != null && !user.mustChangePassword,
-                onAdd = { vm.navigate(Screen.EditEntry(null)) },
+                menu = MenuActions(
+                    onAccount = { vm.navigate(Screen.Account) },
+                    onAnnouncement = { vm.navigate(Screen.Announcement) },
+                    onTimetable = { vm.navigate(Screen.Timetable) },
+                    onStats = { vm.navigate(Screen.InstallStats) },
+                    onWeb = { path -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.BASE_URL + path))) },
+                    onCheckUpdate = { vm.checkUpdate(manual = true) },
+                    onLogout = { vm.logout() },
+                ),
+                edit = EditActions(
+                    load = { vm.loadForEdit(it) },
+                    save = { entry, input -> if (entry == null) vm.api.createEntry(input) else vm.api.updateEntry(entry.id, entry.version, input) },
+                    delete = { vm.api.deleteEntry(it.id) },
+                    toast = { text, err -> vm.toast(text, err) },
+                    onError = { vm.handle(it) },
+                    onChanged = { vm.loadBoard(vm.board?.date, silent = true) },
+                ),
             )
             Screen.Login -> LoginScreen(onLogin = { u, p -> vm.login(u, p) }, onBack = { vm.back() })
             else -> {
                 if (user == null) {
                     // 登入過期或已登出
                     LaunchedEffect(Unit) { vm.home() }
-                } else when (s) {
-                    Screen.Entries -> ManageShell(vm, user, "事項") { EntriesScreen(vm, entriesVersion) }
-                    is Screen.EditEntry -> EntryEditScreen(vm, s.entry) { entriesVersion++; vm.loadBoard(vm.board?.date, silent = true); vm.back() }
-                    Screen.Announcement -> ManageShell(vm, user, "公告") { AnnouncementScreen(vm) }
-                    Screen.Timetable -> ManageShell(vm, user, "課表") { TimetableEditScreen(vm) }
-                    Screen.InstallStats -> ManageShell(vm, user, "App 安裝統計") { InstallStatsScreen(vm) }
+                } else when (vm.screen) {
+                    Screen.Announcement -> SubScreen("編輯公告", vm) { AnnouncementScreen(vm) }
+                    Screen.Timetable -> SubScreen("編輯課表", vm) { TimetableEditScreen(vm) }
+                    Screen.InstallStats -> SubScreen("App 安裝統計", vm) { InstallStatsScreen(vm) }
                     Screen.Account -> AccountScreen(
                         user = user,
                         onChangePassword = { cur, next -> vm.api.changePassword(cur, next); vm.onPasswordChanged() },
                         onSignOutOthers = { vm.api.signOutOthers() },
                         onLogout = { vm.logout() },
-                        onBack = { if (user.mustChangePassword) vm.home() else if (!vm.back()) vm.home() },
+                        onBack = { if (!vm.back()) vm.home() },
                         onError = { vm.handle(it) },
                         onToast = { vm.toast(it) },
                     )
@@ -142,6 +154,14 @@ fun App(vm: AppViewModel) {
             Snackbar(it, containerColor = if (toastIsError) c.red else c.ink, contentColor = if (toastIsError) c.bg else c.bg)
         }
         UpdateDialog(vm)
+    }
+}
+
+@Composable
+private fun SubScreen(title: String, vm: AppViewModel, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxSize().background(Cb.c.bg)) {
+        TopBar(title, onBack = { vm.back() })
+        Box(Modifier.weight(1f)) { content() }
     }
 }
 

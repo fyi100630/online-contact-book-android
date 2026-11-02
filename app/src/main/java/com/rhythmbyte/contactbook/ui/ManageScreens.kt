@@ -82,226 +82,14 @@ import com.rhythmbyte.contactbook.ui.liquid.LiquidButton
 import com.rhythmbyte.contactbook.ui.liquid.LiquidToggle
 
 // =====================================================================
-// 後台外框：左側抽屜選單（和網頁版手機的側邊欄一樣）
-// =====================================================================
-@Composable
-fun ManageShell(vm: AppViewModel, user: SessionUser, title: String, content: @Composable (openMenu: () -> Unit) -> Unit) {
-    val c = Cb.c
-    val drawer = rememberDrawerState(DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val go: (Screen) -> Unit = { s ->
-        scope.launch { drawer.close() }
-        if (vm.screen != s) vm.replace(s)
-    }
-    val openWeb: (String) -> Unit = { path ->
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.BASE_URL + path)))
-    }
-    ModalNavigationDrawer(
-        drawerState = drawer,
-        drawerContent = {
-            ModalDrawerSheet(drawerContainerColor = c.surface, drawerShape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)) {
-                Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 16.dp)) {
-                    Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(c.ink), contentAlignment = Alignment.Center) {
-                            Icon(CbIcons.Book, null, tint = c.bg, modifier = Modifier.size(17.dp))
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(vm.board?.classTitle ?: "班級聯絡簿", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = c.ink)
-                            Text("管理後台", fontSize = 12.sp, color = c.ink3)
-                        }
-                    }
-                    if (!user.mustChangePassword) {
-                        NavLabel("內容")
-                        NavItem("事項", CbIcons.List, vm.screen == Screen.Entries) { go(Screen.Entries) }
-                        if (user.role == Role.ADMIN) {
-                            NavItem("公告", CbIcons.Megaphone, vm.screen == Screen.Announcement) { go(Screen.Announcement) }
-                            NavItem("課表", CbIcons.Grid, vm.screen == Screen.Timetable) { go(Screen.Timetable) }
-                            NavLabel("管理")
-                            NavItem("App 安裝統計", CbIcons.Phone, vm.screen == Screen.InstallStats) { go(Screen.InstallStats) }
-                            NavItem("帳號管理（網頁）", CbIcons.External, false) { openWeb("/manage/users") }
-                            NavItem("修改紀錄（網頁）", CbIcons.External, false) { openWeb("/manage/activity") }
-                            NavItem("垃圾桶（網頁）", CbIcons.External, false) { openWeb("/manage/trash") }
-                            NavItem("備份與匯入（網頁）", CbIcons.External, false) { openWeb("/manage/data") }
-                        }
-                    }
-                    NavLabel("個人")
-                    NavItem("我的帳號", CbIcons.User, vm.screen == Screen.Account) { go(Screen.Account) }
-                    NavItem("查看聯絡簿", CbIcons.Book, false) { scope.launch { drawer.close() }; vm.home() }
-                    NavItem(if (vm.checkingUpdate) "檢查中…" else "檢查更新（v${BuildConfig.VERSION_NAME}）", CbIcons.Download, false) { vm.checkUpdate(manual = true) }
-                    HorizontalDivider(Modifier.padding(vertical = 12.dp), color = c.line)
-                    Column(Modifier.padding(horizontal = 12.dp)) {
-                        Text(user.displayName, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = c.ink)
-                        Text("${user.username}，${user.role.label}", fontSize = 12.sp, color = c.ink3)
-                    }
-                    NavItem("登出", CbIcons.Logout, false) { scope.launch { drawer.close() }; vm.logout() }
-                }
-            }
-        },
-    ) {
-        Column(Modifier.fillMaxSize().background(c.bg)) {
-            TopBar(title, onBack = null) {
-                IconButton({ scope.launch { drawer.open() } }) { Icon(CbIcons.Menu, "開啟選單", tint = c.ink) }
-            }
-            Box(Modifier.weight(1f)) { content { scope.launch { drawer.open() } } }
-        }
-    }
-}
-
-@Composable
-private fun NavLabel(text: String) {
-    Text(text, Modifier.padding(start = 12.dp, top = 18.dp, bottom = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Cb.c.ink3)
-}
-
-@Composable
-private fun NavItem(text: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
-    val c = Cb.c
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 46.dp).clip(RoundedCornerShape(10.dp))
-            .background(if (selected) c.primarySoft else c.surface).clickable(onClick = onClick).padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, null, tint = if (selected) c.primary else c.ink2, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (selected) c.primary else c.ink)
-    }
-}
-
-// =====================================================================
-// 事項列表
-// =====================================================================
-@Composable
-fun EntriesScreen(vm: AppViewModel, refreshKey: Int) {
-    val today = vm.board?.today ?: Dates.today()
-    var entries by remember { mutableStateOf<List<ManagedEntry>?>(null) }
-    var q by rememberSaveable { mutableStateOf("") }
-    var category by rememberSaveable { mutableStateOf<Category?>(null) }
-    var range by rememberSaveable { mutableStateOf(Range.RECENT) }
-
-    LaunchedEffect(q, category, range, refreshKey) {
-        if (q.isNotEmpty()) kotlinx.coroutines.delay(300)
-        val (from, to) = when (range) {
-            Range.RECENT -> Dates.addDays(today, -30) to Dates.addDays(today, 60)
-            Range.PAST -> Dates.addDays(today, -90) to today
-            Range.ALL -> "2000-01-01" to "2100-12-31"
-        }
-        try {
-            entries = vm.api.entries(from, to, q, category)
-        } catch (e: Exception) {
-            vm.handle(e)
-            if (entries == null) entries = emptyList()
-        }
-    }
-    EntriesContent(
-        entries, today, q, { q = it }, category, { category = it }, range, { range = it },
-        onOpen = { vm.navigate(Screen.EditEntry(it)) },
-    )
-}
-
-enum class Range(val label: String) { RECENT("近期"), PAST("過去三個月"), ALL("全部") }
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun EntriesContent(
-    entries: List<ManagedEntry>?,
-    today: String,
-    q: String,
-    onQ: (String) -> Unit,
-    category: Category?,
-    onCategory: (Category?) -> Unit,
-    range: Range,
-    onRange: (Range) -> Unit,
-    onOpen: (ManagedEntry?) -> Unit,
-) {
-    val c = Cb.c
-    val backdrop = rememberLayerBackdrop()
-    Box(Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize().layerBackdrop(backdrop).background(c.bg), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp)) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CbTextField(q, onQ, placeholder = "搜尋內容、科目…", leading = CbIcons.Search, maxLength = 50)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip("所有類別", category == null, { onCategory(null) })
-                        Category.entries.forEach { cat -> FilterChip(cat.short, category == cat, { onCategory(cat) }) }
-                    }
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Range.entries.forEach { r -> FilterChip(r.label, range == r, { onRange(r) }) }
-                    }
-                    Spacer(Modifier.height(4.dp))
-                }
-            }
-            when {
-                entries == null -> item { CenterBox { Spinner() } }
-                entries.isEmpty() -> item {
-                    EmptyState("沒有符合的事項") { CbButton("新增第一筆", { onOpen(null) }, kind = BtnKind.Secondary, small = true, icon = CbIcons.Plus) }
-                }
-                else -> items(entries, key = { it.id }) { e -> ManagedRow(e, today) { onOpen(e) } }
-            }
-        }
-        LiquidButton(
-            { onOpen(null) }, backdrop,
-            Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp),
-            tint = c.primary,
-        ) {
-            Icon(CbIcons.Plus, null, tint = Color.White, modifier = Modifier.size(20.dp))
-            Text("新增事項", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ManagedRow(e: ManagedEntry, today: String, onClick: () -> Unit) {
-    val c = Cb.c
-    val dl = Dates.deadline(e.dueDate, today, e.category)
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                "${Dates.formatShort(e.entryDate)}（${Dates.WEEKDAYS[Dates.weekday(e.entryDate)]}）" + if (e.entryDate == today) "・今天登記" else "",
-                fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = c.ink3,
-            )
-            Text(
-                (if (e.subject.isNotBlank()) "［${e.subject}］" else "") + e.title,
-                fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis,
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                Badge(e.category.short)
-                if (e.priority == Priority.HIGH) Badge("重要", fg = c.red, bg = c.redSoft)
-                if (dl != null) {
-                    val red = dl.tone == Dates.Tone.TODAY || dl.tone == Dates.Tone.TOMORROW
-                    Badge(dl.label, fg = if (red) c.red else if (dl.tone == Dates.Tone.PAST) c.ink3 else c.ink2, bg = if (red) c.redSoft else c.bg2)
-                }
-                Text(e.updatedByName ?: "系統", fontSize = 12.sp, color = c.ink3)
-            }
-        }
-        HorizontalDivider(color = c.line)
-    }
-}
-
-// =====================================================================
 // 新增／編輯事項
 // =====================================================================
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun EntryEditScreen(vm: AppViewModel, entry: ManagedEntry?, onDone: () -> Unit) {
-    EntryEditor(
-        entry = entry,
-        today = vm.board?.today ?: Dates.today(),
-        save = { input -> if (entry == null) vm.api.createEntry(input) else vm.api.updateEntry(entry.id, entry.version, input) },
-        delete = { vm.api.deleteEntry(entry!!.id) },
-        toast = vm::toast,
-        onError = { vm.handle(it) },
-        onBack = { vm.back() },
-        onDone = onDone,
-    )
-}
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun EntryEditor(
     entry: ManagedEntry?,
     today: String,
+    defaultCategory: Category = Category.HOMEWORK,
     save: suspend (EntryInput) -> Unit,
     delete: suspend () -> Unit,
     toast: (String, Boolean) -> Unit,
@@ -312,7 +100,7 @@ fun EntryEditor(
     val c = Cb.c
     val scope = rememberCoroutineScope()
     var entryDate by rememberSaveable { mutableStateOf(entry?.entryDate ?: today) }
-    var category by rememberSaveable { mutableStateOf(entry?.category ?: Category.HOMEWORK) }
+    var category by rememberSaveable { mutableStateOf(entry?.category ?: defaultCategory) }
     var subject by rememberSaveable { mutableStateOf(entry?.subject ?: "") }
     var title by rememberSaveable { mutableStateOf(entry?.title ?: "") }
     var details by rememberSaveable { mutableStateOf(entry?.details ?: "") }
@@ -346,7 +134,7 @@ fun EntryEditor(
     }
 
     Column(Modifier.fillMaxSize().background(c.bg)) {
-        TopBar(if (entry == null) "新增事項" else "編輯事項", onBack = onBack)
+        TopBar(if (entry == null) "新增事項" else "編輯事項", onBack = onBack, closeIcon = true)
         Column(
             Modifier.weight(1f).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),

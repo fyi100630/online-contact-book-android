@@ -21,6 +21,10 @@
 | 改公告、課表，看 App 安裝統計 | | | ✅ |
 | 帳號管理、修改紀錄、垃圾桶、備份 | | | 在網頁版（App 會開瀏覽器） |
 
+- 沒有「管理後台」：登入後直接在聯絡簿上編輯。點事項就能修改，按右下角玻璃「＋」新增（和 2.0.0 一樣的圓形展開動畫）。
+  其他功能在右上角的帳號選單。
+- 底部是 LiquidGlass 玻璃分頁（作業／考試／繳交／提醒），可以點、拖，或左右滑動切換。
+
 - 每 60 秒檢查一次有沒有人更新，有就自動重新整理；也可以下拉重新整理
 - 登入狀態用伺服器的 session cookie，加密保存在手機（Android Keystore）
 - App 內更新：讀這個 repo 的 GitHub Releases，下載 `app-release.apk` 交給系統安裝
@@ -70,5 +74,6 @@ keyPassword=...
 
 ## 技術
 
-Kotlin 2.2、Jetpack Compose（Material 3）、OkHttp、kotlinx.serialization。`minSdk 26`（Android 8.0）、`targetSdk 36`。
+Kotlin 2.3、Jetpack Compose（Material 3）、OkHttp、kotlinx.serialization、
+[Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)（backdrop 1.0.6；玻璃元件改寫自它的範例，Apache-2.0，見 `THIRD_PARTY_LICENSES/`）。`minSdk 26`（Android 8.0）、`targetSdk 36`。
 套件名稱 `com.rhythmbyte.contactbook`，和舊版相同。

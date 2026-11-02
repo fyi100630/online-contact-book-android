@@ -143,12 +143,12 @@ fun Badge(text: String, fg: androidx.compose.ui.graphics.Color = Cb.c.ink2, bg: 
 }
 
 @Composable
-fun TopBar(title: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
+fun TopBar(title: String, onBack: (() -> Unit)? = null, closeIcon: Boolean = false, actions: @Composable RowScope.() -> Unit = {}) {
     val c = Cb.c
     Column(Modifier.background(c.bg).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) {
-                IconButton(onBack) { Icon(CbIcons.Back, "返回", tint = c.ink) }
+                IconButton(onBack) { Icon(if (closeIcon) CbIcons.X else CbIcons.Back, if (closeIcon) "關閉" else "返回", tint = c.ink) }
             } else {
                 Spacer(Modifier.width(12.dp))
             }

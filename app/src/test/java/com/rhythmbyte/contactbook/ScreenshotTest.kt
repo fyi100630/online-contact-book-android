@@ -22,11 +22,15 @@ import com.rhythmbyte.contactbook.data.WeekDay
 import com.rhythmbyte.contactbook.ui.AccountScreen
 import com.rhythmbyte.contactbook.ui.BoardScreen
 import com.rhythmbyte.contactbook.ui.ContactBookTheme
-import com.rhythmbyte.contactbook.ui.EntriesContent
+import com.rhythmbyte.contactbook.ui.EditActions
+import com.rhythmbyte.contactbook.ui.RevealOverlay
+import androidx.compose.animation.core.Animatable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.Offset
 import com.rhythmbyte.contactbook.ui.EntryEditor
 import com.rhythmbyte.contactbook.ui.InstallStatsContent
 import com.rhythmbyte.contactbook.ui.LoginScreen
-import com.rhythmbyte.contactbook.ui.Range
 import com.rhythmbyte.contactbook.ui.TopBar
 import com.rhythmbyte.contactbook.ui.WeekTable
 import org.junit.Assume.assumeTrue
@@ -75,11 +79,27 @@ class ScreenshotTest {
         version = "1",
     )
 
-    @Test fun board() = shot("01-board") { BoardScreen(board, false, null, false, {}, {}, {}, {}) }
-    @Test fun boardEditor() = shot("01b-board-editor") { BoardScreen(board, false, null, true, {}, {}, {}, {}, canEdit = true) }
-    @Test fun boardDark() = shot("02-board-dark", dark = true) { BoardScreen(board, false, null, true, {}, {}, {}, {}, canEdit = true) }
+    private val editor = SessionUser("u", "amy", "學藝", Role.EDITOR, false)
+    private val noopEdit = EditActions({ null }, { _, _ -> }, {}, { _, _ -> }, {}, {})
+
+    @Test fun board() = shot("01-board") { BoardScreen(board, false, null, null, {}, {}, {}) }
+    @Test fun boardEditor() = shot("01b-board-editor") { BoardScreen(board, false, null, editor, {}, {}, {}, edit = noopEdit, initialPage = 1) }
+    @Test fun boardDark() = shot("02-board-dark", dark = true) { BoardScreen(board, false, null, editor, {}, {}, {}, edit = noopEdit) }
     @Test fun boardWeekend() = shot("03-board-weekend") {
-        BoardScreen(board.copy(date = "2026-11-07", entries = emptyList(), announcement = ""), false, null, false, {}, {}, {}, {})
+        BoardScreen(board.copy(date = "2026-11-07", entries = emptyList(), announcement = ""), false, null, null, {}, {}, {})
+    }
+    @Test fun reveal30() = revealShot("10-reveal-30", 0.3f)
+    @Test fun reveal60() = revealShot("11-reveal-60", 0.6f)
+
+    /** 按＋之後展開動畫進行到一半的樣子 */
+    private fun revealShot(name: String, p: Float) = shot(name) {
+        Box(Modifier.fillMaxSize()) {
+            BoardScreen(board, false, null, editor, {}, {}, {}, edit = noopEdit)
+            val anim = remember { Animatable(p) }
+            RevealOverlay(anim, Offset(1179f - 48f * 3f - 32f * 3f, 2556f - 60f * 3f - 32f * 3f), showPlus = true, onScrimClick = {}) {
+                EntryEditor(null, "2026-11-02", Category.EXAM, {}, {}, { _, _ -> }, {}, {}, {})
+            }
+        }
     }
     @Test fun weekTable() = shot("04-week-timetable") {
         Column(Modifier.fillMaxSize().padding(16.dp)) { WeekTable(tt, 1) }
@@ -89,22 +109,8 @@ class ScreenshotTest {
     private fun managed(id: String, cat: Category, subject: String, title: String, entry: String, due: String?, high: Boolean = false) =
         ManagedEntry(id, entry, cat, subject, title, "", due, if (high) Priority.HIGH else Priority.NORMAL, 1, "2026-11-02T01:00:00Z", "王班長", "2026-11-02T01:00:00Z", "學藝")
 
-    @Test fun entries() = shot("06-entries") {
-        Column {
-            TopBar("事項")
-            EntriesContent(
-                listOf(
-                    managed("1", Category.EXAM, "數學", "第一次段考 ch1–3", "2026-11-02", "2026-11-09", true),
-                    managed("2", Category.HOMEWORK, "國文", "習作 p.12～20", "2026-11-02", "2026-11-03"),
-                    managed("3", Category.SUBMISSION, "", "家長同意書（簽名）", "2026-10-30", "2026-11-04"),
-                    managed("4", Category.REMINDER, "", "明天穿運動服", "2026-11-02", null),
-                ),
-                "2026-11-02", "", {}, null, {}, Range.RECENT, {}, {},
-            )
-        }
-    }
     @Test fun editor() = shot("07-editor") {
-        EntryEditor(managed("1", Category.EXAM, "數學", "第一次段考 ch1–3", "2026-11-02", "2026-11-09", true), "2026-11-02", {}, {}, { _, _ -> }, {}, {}, {})
+        EntryEditor(managed("1", Category.EXAM, "數學", "第一次段考 ch1–3", "2026-11-02", "2026-11-09", true), "2026-11-02", Category.EXAM, {}, {}, { _, _ -> }, {}, {}, {})
     }
     @Test fun account() = shot("08-account-forced") {
         AccountScreen(SessionUser("u", "amy", "學藝", Role.EDITOR, true), { _, _ -> }, {}, {}, {}, {}, {})

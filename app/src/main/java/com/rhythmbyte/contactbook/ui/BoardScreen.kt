@@ -1,15 +1,16 @@
 package com.rhythmbyte.contactbook.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,13 +39,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -50,86 +57,47 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.rhythmbyte.contactbook.data.BoardData
 import com.rhythmbyte.contactbook.data.Category
 import com.rhythmbyte.contactbook.data.Dates
+import com.rhythmbyte.contactbook.data.EntryInput
+import com.rhythmbyte.contactbook.data.ManagedEntry
 import com.rhythmbyte.contactbook.data.Priority
 import com.rhythmbyte.contactbook.data.PublicEntry
+import com.rhythmbyte.contactbook.data.Role
+import com.rhythmbyte.contactbook.data.SessionUser
 import com.rhythmbyte.contactbook.data.TIMETABLE_PERIODS
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.rhythmbyte.contactbook.ui.liquid.LiquidBottomTab
 import com.rhythmbyte.contactbook.ui.liquid.LiquidBottomTabs
 import com.rhythmbyte.contactbook.ui.liquid.LiquidButton
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun BoardScreen(
-    board: BoardData?,
-    loading: Boolean,
-    error: String?,
-    signedIn: Boolean,
-    onPick: (String) -> Unit,
-    onRefresh: () -> Unit,
-    onLogin: () -> Unit,
-    onManage: () -> Unit,
-    canEdit: Boolean = false,
-    onAdd: () -> Unit = {},
-) {
-    val c = Cb.c
-    // 0 = 全部，1～4 = 作業、考試、繳交、提醒（和舊版一樣用底部玻璃分頁切換）
-    var tab by rememberSaveable { mutableStateOf(0) }
-    val backdrop = rememberLayerBackdrop()
-    Box(Modifier.fillMaxSize().background(c.bg)) {
-    Column(Modifier.fillMaxSize().layerBackdrop(backdrop).background(c.bg)) {
-        BrandBar(board?.classTitle ?: "班級聯絡簿", signedIn, onLogin, onManage)
-        if (board == null) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (error != null) {
-                    Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("聯絡簿暫時無法載入", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = c.ink)
-                        Text(error, color = c.ink3, fontSize = 14.sp, textAlign = TextAlign.Center)
-                        Spacer(Modifier.height(4.dp))
-                        CbButton("重新載入", onRefresh, kind = BtnKind.Secondary)
-                    }
-                } else {
-                    Spinner()
-                }
-            }
-            return@Column
-        }
-        PullToRefreshBox(isRefreshing = loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
-            BoardList(board, onPick, if (tab == 0) null else Category.entries[tab - 1])
-        }
-    }
-    if (board != null) {
-        Row(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            LiquidBottomTabs(
-                selectedTabIndex = { tab },
-                onTabSelected = { tab = it },
-                backdrop = backdrop,
-                tabsCount = 5,
-                modifier = Modifier.weight(1f),
-            ) {
-                val counts = Category.entries.map { cat -> board.entries.count { it.category == cat } }
-                BottomTab("全部", board.entries.size, CbIcons.All) { tab = 0 }
-                Category.entries.forEachIndexed { i, cat ->
-                    BottomTab(cat.short, counts[i], CATEGORY_ICONS.getValue(cat)) { tab = i + 1 }
-                }
-            }
-            if (canEdit) {
-                LiquidButton(onAdd, backdrop, Modifier.size(64.dp), surfaceColor = c.surface.copy(alpha = 0.4f)) {
-                    Icon(CbIcons.Plus, "新增事項", tint = c.ink, modifier = Modifier.size(26.dp))
-                }
-            }
-        }
-    }
-    }
-}
+/** 登入後在聯絡簿上直接編輯要用到的動作（由 AppViewModel 提供） */
+class EditActions(
+    /** 點事項時，向伺服器拿有版本號的完整資料 */
+    val load: suspend (PublicEntry) -> ManagedEntry?,
+    val save: suspend (ManagedEntry?, EntryInput) -> Unit,
+    val delete: suspend (ManagedEntry) -> Unit,
+    val toast: (String, Boolean) -> Unit,
+    val onError: (Throwable) -> Unit,
+    /** 存檔或刪除後重新整理聯絡簿 */
+    val onChanged: () -> Unit,
+)
+
+/** 右上角帳號選單的項目 */
+class MenuActions(
+    val onAccount: () -> Unit = {},
+    val onAnnouncement: () -> Unit = {},
+    val onTimetable: () -> Unit = {},
+    val onStats: () -> Unit = {},
+    val onWeb: (String) -> Unit = {},
+    val onCheckUpdate: () -> Unit = {},
+    val onLogout: () -> Unit = {},
+)
+
+private data class EditorState(val entry: ManagedEntry?, val center: Offset, val fromPlus: Boolean, val date: String, val category: Category)
 
 private val CATEGORY_ICONS = mapOf(
     Category.HOMEWORK to CbIcons.Pencil,
@@ -138,72 +106,258 @@ private val CATEGORY_ICONS = mapOf(
     Category.REMINDER to CbIcons.Bell,
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun androidx.compose.foundation.layout.RowScope.BottomTab(label: String, count: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+fun BoardScreen(
+    board: BoardData?,
+    loading: Boolean,
+    error: String?,
+    user: SessionUser?,
+    onPick: (String) -> Unit,
+    onRefresh: () -> Unit,
+    onLogin: () -> Unit,
+    menu: MenuActions = MenuActions(),
+    edit: EditActions? = null,
+    initialPage: Int = 0,
+) {
     val c = Cb.c
-    LiquidBottomTab(onClick, Modifier.semantics { contentDescription = "$label，$count 項" }) {
-        Box {
-            Icon(icon, null, tint = c.ink, modifier = Modifier.size(22.dp))
-        }
-        Text(if (count > 0) "$label $count" else label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = c.ink, maxLines = 1)
+    val scope = rememberCoroutineScope()
+    val canEdit = user != null && !user.mustChangePassword && edit != null
+    // 底部玻璃分頁：作業、考試、繳交、提醒（左右滑動也可以切換，和舊版一樣）
+    val pager = rememberPagerState(initialPage) { Category.entries.size }
+    val backdrop = rememberLayerBackdrop()
+    var showDate by remember { mutableStateOf(false) }
+    var showWeek by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var plusCenter by remember { mutableStateOf(Offset.Zero) }
+    var editor by remember { mutableStateOf<EditorState?>(null) }
+    val reveal = remember { Animatable(0f) }
+
+    fun openEditor(state: EditorState) {
+        editor = state
+        scope.launch { reveal.revealOpen() }
     }
+    fun closeEditor(changed: Boolean = false) {
+        scope.launch {
+            reveal.revealClose()
+            editor = null
+        }
+        if (changed) edit?.onChanged?.invoke()
+    }
+    BackHandler(enabled = editor != null) { closeEditor() }
+
+    Box(Modifier.fillMaxSize().background(c.bg)) {
+        Column(Modifier.fillMaxSize().layerBackdrop(backdrop).background(c.bg)) {
+            BrandBar(board?.classTitle ?: "班級聯絡簿", user, onLogin, onMenu = { showMenu = true })
+            if (board == null) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    if (error != null) {
+                        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("聯絡簿暫時無法載入", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = c.ink)
+                            Text(error, color = c.ink3, fontSize = 14.sp, textAlign = TextAlign.Center)
+                            Spacer(Modifier.height(4.dp))
+                            CbButton("重新載入", onRefresh, kind = BtnKind.Secondary)
+                        }
+                    } else {
+                        Spinner()
+                    }
+                }
+                return@Column
+            }
+            PullToRefreshBox(isRefreshing = loading, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
+                HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
+                    val cat = Category.entries[page]
+                    BoardPage(
+                        board, cat, onPick,
+                        onPickDate = { showDate = true },
+                        onWeek = { showWeek = true },
+                        onEntry = if (canEdit) { e, center ->
+                            scope.launch {
+                                try {
+                                    val m = edit!!.load(e)
+                                    if (m == null) edit.toast("這個事項已經被刪除了", true)
+                                    else openEditor(EditorState(m, center, false, m.entryDate, m.category))
+                                } catch (t: Throwable) {
+                                    edit!!.onError(t)
+                                }
+                            }
+                        } else null,
+                    )
+                }
+            }
+        }
+
+        if (board != null) {
+            Row(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                LiquidBottomTabs(
+                    selectedTabIndex = { pager.currentPage },
+                    onTabSelected = { scope.launch { pager.animateScrollToPage(it) } },
+                    backdrop = backdrop,
+                    tabsCount = Category.entries.size,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Category.entries.forEachIndexed { i, cat ->
+                        BottomTab(cat.short, CATEGORY_ICONS.getValue(cat)) { scope.launch { pager.animateScrollToPage(i) } }
+                    }
+                }
+                if (canEdit) {
+                    LiquidButton(
+                        onClick = {
+                            openEditor(EditorState(null, plusCenter, true, board.date, Category.entries[pager.currentPage]))
+                        },
+                        backdrop = backdrop,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .onGloballyPositioned { plusCenter = it.boundsInRoot().center }
+                            .graphicsLayer { alpha = if (editor?.fromPlus == true) 0f else 1f },
+                        surfaceColor = c.surface.copy(alpha = 0.4f),
+                    ) {
+                        Icon(CbIcons.Plus, "新增事項", tint = c.ink, modifier = Modifier.size(26.dp))
+                    }
+                }
+            }
+        }
+
+        editor?.let { st ->
+            RevealOverlay(reveal, st.center, showPlus = st.fromPlus, onScrimClick = {}) {
+                EntryEditor(
+                    entry = st.entry,
+                    today = st.date,
+                    defaultCategory = st.category,
+                    save = { input -> edit!!.save(st.entry, input) },
+                    delete = { edit!!.delete(st.entry!!) },
+                    toast = edit!!.toast,
+                    onError = edit.onError,
+                    onBack = { closeEditor() },
+                    onDone = { closeEditor(changed = true) },
+                )
+            }
+        }
+    }
+
+    if (board != null) {
+        if (showDate) DatePick(board.date, onPick = onPick, onDismiss = { showDate = false })
+        if (showWeek && board.timetable != null) WeekSheet(board.timetable, Dates.weekday(board.date), canEditTimetable = user?.role == Role.ADMIN && canEdit, onEdit = { showWeek = false; menu.onTimetable() }) { showWeek = false }
+    }
+    if (showMenu && user != null) AccountMenu(user, menu) { showMenu = false }
 }
 
 @Composable
-private fun BrandBar(title: String, signedIn: Boolean, onLogin: () -> Unit, onManage: () -> Unit) {
+private fun BrandBar(title: String, user: SessionUser?, onLogin: () -> Unit, onMenu: () -> Unit) {
     val c = Cb.c
     Column(Modifier.background(c.bg).statusBarsPadding()) {
-        Row(Modifier.fillMaxWidth().height(60.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(60.dp).padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(c.ink), contentAlignment = Alignment.Center) {
                 Icon(CbIcons.Book, null, tint = c.bg, modifier = Modifier.size(17.dp))
             }
             Spacer(Modifier.width(10.dp))
             Text(title, Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 16.sp, color = c.ink, maxLines = 1)
-            if (signedIn) CbButton("管理後台", onManage, small = true) else CbButton("登入", onLogin, kind = BtnKind.Secondary, small = true)
+            if (user == null) {
+                CbButton("登入", onLogin, kind = BtnKind.Secondary, small = true)
+                Spacer(Modifier.width(8.dp))
+            } else {
+                Row(
+                    Modifier.clip(CircleShape).clickable(onClick = onMenu).padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(user.displayName, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = c.ink2, maxLines = 1)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(CbIcons.Menu, "帳號選單", tint = c.ink, modifier = Modifier.size(20.dp))
+                }
+            }
         }
         HorizontalDivider(color = c.line)
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/** 右上角帳號選單：取代原本的「管理後台」 */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BoardList(board: BoardData, onPick: (String) -> Unit, filter: Category?) {
+private fun AccountMenu(user: SessionUser, menu: MenuActions, onDismiss: () -> Unit) {
     val c = Cb.c
-    var showDate by remember { mutableStateOf(false) }
-    var showWeek by remember { mutableStateOf(false) }
-    val counts = Category.entries.associateWith { cat -> board.entries.count { it.category == cat } }
-    val shown = board.entries.filter { filter == null || it.category == filter }
-    val groups = (if (filter == null) Category.entries.filter { (counts[it] ?: 0) > 0 } else listOf(filter))
-        .map { cat -> cat to shown.filter { it.category == cat } }
+    val go: (() -> Unit) -> () -> Unit = { f -> { onDismiss(); f() } }
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface) {
+        Column(Modifier.padding(horizontal = 12.dp).navigationBarsPadding().padding(bottom = 12.dp)) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                Text(user.displayName, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = c.ink)
+                Text("${user.username}，${user.role.label}", fontSize = 13.sp, color = c.ink3)
+            }
+            if (!user.mustChangePassword) {
+                Text("點聯絡簿上的事項就能修改，按右下角＋新增。", Modifier.padding(horizontal = 12.dp, vertical = 8.dp), fontSize = 13.sp, color = c.ink3)
+            }
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = c.line)
+            if (user.role == Role.ADMIN && !user.mustChangePassword) {
+                MenuItem("編輯公告", CbIcons.Megaphone, go(menu.onAnnouncement))
+                MenuItem("編輯課表", CbIcons.Grid, go(menu.onTimetable))
+                MenuItem("App 安裝統計", CbIcons.Phone, go(menu.onStats))
+                MenuItem("帳號管理（網頁）", CbIcons.External, go { menu.onWeb("/manage/users") })
+                MenuItem("修改紀錄、垃圾桶（網頁）", CbIcons.External, go { menu.onWeb("/manage/activity") })
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = c.line)
+            }
+            MenuItem("我的帳號（修改密碼）", CbIcons.User, go(menu.onAccount))
+            MenuItem("檢查更新", CbIcons.Download, go(menu.onCheckUpdate))
+            MenuItem("登出", CbIcons.Logout, go(menu.onLogout), danger = true)
+        }
+    }
+}
 
+@Composable
+private fun MenuItem(text: String, icon: ImageVector, onClick: () -> Unit, danger: Boolean = false) {
+    val c = Cb.c
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 50.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = if (danger) c.red else c.ink2, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(14.dp))
+        Text(text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = if (danger) c.red else c.ink)
+    }
+}
+
+@Composable
+private fun RowScope.BottomTab(label: String, icon: ImageVector, onClick: () -> Unit) {
+    val c = Cb.c
+    LiquidBottomTab(onClick) {
+        Icon(icon, null, tint = c.ink, modifier = Modifier.size(22.dp))
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = c.ink, maxLines = 1)
+    }
+}
+
+/** 一個分類一頁；日期、週曆、公告、課表在每頁最上面 */
+@Composable
+fun BoardPage(
+    board: BoardData,
+    category: Category,
+    onPick: (String) -> Unit,
+    onPickDate: () -> Unit,
+    onWeek: () -> Unit,
+    onEntry: ((PublicEntry, Offset) -> Unit)?,
+) {
+    val list = board.entries.filter { it.category == category }
     LazyColumn(
         Modifier.fillMaxSize(),
         // 底部留空間給玻璃分頁列
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 120.dp),
     ) {
-        item(key = "hero") { Hero(board, onToday = { onPick(board.today) }, onPickDate = { showDate = true }) }
+        item(key = "hero") { Hero(board, onToday = { onPick(board.today) }, onPickDate = onPickDate) }
         item(key = "week") { WeekStrip(board, onPick) }
         if (board.announcement.isNotBlank()) {
             item(key = "notice") { Notice(board) }
         }
         board.timetable?.let { tt ->
-            item(key = "classes") { DayClasses(tt, board.date, onWeek = { showWeek = true }) }
+            item(key = "classes") { DayClasses(tt, board.date, onWeek = onWeek) }
         }
-        item(key = "gap") { Spacer(Modifier.height(4.dp)) }
-        if (shown.isEmpty()) {
-            item(key = "empty") {
-                EmptyState(if (filter == null) "這天沒有登記事項" else "這天沒有${filter.short}", "用上面的週曆看看其他天")
-            }
+        item(key = "head") { SheetHead(category.label, list.size) }
+        if (list.isEmpty()) {
+            item(key = "empty") { EmptyState("這天沒有${category.short}", "用上面的週曆看看其他天") }
         } else {
-            groups.forEach { (cat, list) ->
-                item(key = "h-$cat") { SheetHead(cat.label, list.size) }
-                items(list, key = { it.id }) { EntryRow(it, board.date) }
-            }
+            items(list, key = { it.id }) { e -> EntryRow(e, board.date, onEntry?.let { f -> { center: Offset -> f(e, center) } }) }
         }
     }
-
-    if (showDate) DatePick(board.date, onPick = onPick, onDismiss = { showDate = false })
-    if (showWeek && board.timetable != null) WeekSheet(board.timetable, Dates.weekday(board.date)) { showWeek = false }
 }
 
 @Composable
@@ -324,11 +478,14 @@ private fun DayClasses(timetable: List<List<String>>, date: String, onWeek: () -
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WeekSheet(timetable: List<List<String>>, highlight: Int, onDismiss: () -> Unit) {
+private fun WeekSheet(timetable: List<List<String>>, highlight: Int, canEditTimetable: Boolean, onEdit: () -> Unit, onDismiss: () -> Unit) {
     val c = Cb.c
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface) {
         Column(Modifier.padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text("整週課表", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = c.ink, modifier = Modifier.padding(bottom = 12.dp))
+            Row(Modifier.padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("整週課表", Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = c.ink)
+                if (canEditTimetable) CbButton("編輯", onEdit, kind = BtnKind.Secondary, small = true)
+            }
             WeekTable(timetable, highlight)
         }
     }
@@ -382,10 +539,15 @@ private fun SheetHead(title: String, count: Int) {
 }
 
 @Composable
-private fun EntryRow(e: PublicEntry, day: String) {
+private fun EntryRow(e: PublicEntry, day: String, onClick: ((Offset) -> Unit)?) {
     val c = Cb.c
     val dl = Dates.deadline(e.dueDate, day, e.category)
-    Column {
+    var center by remember { mutableStateOf(Offset.Zero) }
+    Column(
+        Modifier
+            .onGloballyPositioned { center = it.boundsInRoot().center }
+            .then(if (onClick != null) Modifier.clickable { onClick(center) } else Modifier),
+    ) {
         Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(e.subject, Modifier.widthIn(min = 56.dp, max = 72.dp).width(64.dp), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.ink2)
             Column(Modifier.weight(1f)) {
