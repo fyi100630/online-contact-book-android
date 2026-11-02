@@ -17,7 +17,10 @@ import com.rhythmbyte.contactbook.data.PersistentCookieJar
 import com.rhythmbyte.contactbook.data.SessionUser
 import com.rhythmbyte.contactbook.data.UpdateInfo
 import com.rhythmbyte.contactbook.data.Updater
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
+import com.rhythmbyte.contactbook.data.CalendarData
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -31,6 +34,8 @@ sealed interface Screen {
 }
 
 /** 底欄四個分頁：0 聯絡簿、1 課表、2 行事曆、3 我的 */
+/** 校曆資料檔（app/src/main/assets）。換學期時換成新的檔案、發新版 App */
+const val CALENDAR_ASSET = "calendar-115-1.json"
 const val TAB_BOARD = 0
 const val TAB_TIMETABLE = 1
 const val TAB_CALENDAR = 2
@@ -73,23 +78,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- 底欄分頁 ----
     var tab by mutableIntStateOf(TAB_BOARD)
 
-    // ---- 學期行事曆（第一次看到「行事曆」分頁才讀取）----
+    // ---- 學期行事曆：學校公告的校曆，已經整理成檔案放在 App 裡（assets），不需要網路 ----
     var calendar by mutableStateOf<CalendarState>(CalendarState.Loading)
         private set
-    private var calendarLoaded = false
 
     fun loadCalendar(force: Boolean = false) {
-        if (calendarLoaded && !force && calendar is CalendarState.Ready) return
-        calendarLoaded = true
-        calendar = CalendarState.Loading
+        if (calendar is CalendarState.Ready && !force) return
         viewModelScope.launch {
             calendar = try {
-                CalendarState.Ready(api.calendar())
-            } catch (e: ApiException) {
-                calendarLoaded = false
-                CalendarState.Failed(
-                    if (e.status == 404) "網站還沒有行事曆資料。請管理員到 Supabase 執行 db/migrations/002_calendar.sql。" else e.message ?: "讀取失敗",
-                )
+                val text = withContext(Dispatchers.IO) {
+                    getApplication<Application>().assets.open(CALENDAR_ASSET).use { it.readBytes().decodeToString() }
+                }
+                CalendarState.Ready(api.json.decodeFromString(CalendarData.serializer(), text))
+            } catch (e: Exception) {
+                CalendarState.Failed("讀取行事曆失敗：${e.message ?: "請更新 App"}")
             }
         }
     }

@@ -94,6 +94,10 @@ android {
             test.testLogging { events("passed", "skipped", "failed") }
         }
     }
+    sourceSets {
+        // 單元測試直接讀 App 裡的校曆檔
+        getByName("test").resources.srcDir("src/main/assets")
+    }
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/versions/9/OSGI-INF/MANIFEST.MF")
     }

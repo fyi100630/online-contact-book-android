@@ -91,7 +91,7 @@ fun CalendarTab(state: CalendarState, today: String, onRetry: () -> Unit) {
         ) {
             Text("行事曆暫時無法載入", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = c.ink)
             Text(state.message, Modifier.padding(vertical = 8.dp), color = c.ink3, fontSize = 14.sp, textAlign = TextAlign.Center)
-            CbButton("重新載入", onRetry, kind = BtnKind.Secondary)
+            CbButton("再試一次", onRetry, kind = BtnKind.Secondary)
         }
         is CalendarState.Ready -> CalendarList(state.data, today)
     }
@@ -143,7 +143,7 @@ private fun CalendarList(data: CalendarData, today: String) {
         }
         item(key = "foot") {
             Column(Modifier.padding(top = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("資料來自學校公告的校曆（${data.published.replace('-', '/')} 版），活動可能臨時調整，以學校公告為準。", fontSize = 12.sp, color = c.ink3, lineHeight = 18.sp)
+                Text("資料來自學校公告的校曆（${data.published.replace('-', '/')} 版），活動可能臨時調整，以學校公告為準。新學期要更新 App 才會換成新的校曆。", fontSize = 12.sp, color = c.ink3, lineHeight = 18.sp)
                 if (data.source.isNotBlank()) Text(linkify(data.source), fontSize = 12.sp)
             }
         }

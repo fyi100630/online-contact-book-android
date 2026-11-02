@@ -1,12 +1,7 @@
 package com.rhythmbyte.contactbook.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,11 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,7 +38,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -94,10 +86,11 @@ private val TABS = listOf(
 
 /**
  * 主畫面：上面一條班級名稱，中間四個分頁（可以左右滑），底下是 LiquidGlass 玻璃底欄。
- *   1 聯絡簿（整本聯絡簿；登入後點事項編輯、右下角＋新增）
+ *   1 聯絡簿（整本聯絡簿；登入後點事項編輯）
  *   2 課表（今天是星期幾就反白那一天）
  *   3 行事曆（學校的學期校曆）
  *   4 我的（登入、帳號、管理員功能）
+ * 右邊的「＋」（新增事項）和之前一樣，有編輯權限時一直都在。
  */
 @Composable
 fun MainScreen(
@@ -125,7 +118,6 @@ fun MainScreen(
     var plusCenter by remember { mutableStateOf(Offset.Zero) }
     var editor by remember { mutableStateOf<EditorState?>(null) }
     val reveal = remember { Animatable(0f) }
-    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
     // 外面（登入過期、點底欄）改了分頁就捲過去；使用者滑動後再回報給外面
     LaunchedEffect(tab) { if (pager.currentPage != tab) pager.animateScrollToPage(tab) }
@@ -178,44 +170,32 @@ fun MainScreen(
             }
         }
 
-        // 鍵盤出現時把底欄收起來，不然會擋住輸入框
-        AnimatedVisibility(
-            visible = !imeVisible,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = fadeIn(),
-            exit = fadeOut(),
+        Row(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            LiquidBottomTabs(
+                selectedTabIndex = { pager.currentPage },
+                onTabSelected = onTab,
+                backdrop = backdrop,
+                tabsCount = TABS.size,
+                modifier = Modifier.weight(1f),
             ) {
-                LiquidBottomTabs(
-                    selectedTabIndex = { pager.currentPage },
-                    onTabSelected = onTab,
+                TABS.forEachIndexed { i, t -> BottomTab(t.label, t.icon) { onTab(i) } }
+            }
+            // 右邊的「＋」：和之前一樣，有編輯權限就一直在（不隨分頁消失）
+            if (canEdit) {
+                LiquidButton(
+                    onClick = { openEditor(EditorState(null, plusCenter, true, board?.date ?: Dates.today())) },
                     backdrop = backdrop,
-                    tabsCount = TABS.size,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .size(64.dp)
+                        .onGloballyPositioned { plusCenter = it.boundsInRoot().center }
+                        .graphicsLayer { alpha = if (editor?.fromPlus == true) 0f else 1f },
+                    surfaceColor = c.surface.copy(alpha = 0.4f),
                 ) {
-                    TABS.forEachIndexed { i, t -> BottomTab(t.label, t.icon) { onTab(i) } }
-                }
-                // ＋只在「聯絡簿」分頁、而且有編輯權限時出現
-                AnimatedVisibility(
-                    visible = canEdit && pager.currentPage == TAB_BOARD,
-                    enter = fadeIn() + scaleIn(),
-                    exit = fadeOut() + scaleOut(),
-                ) {
-                    LiquidButton(
-                        onClick = { openEditor(EditorState(null, plusCenter, true, board?.date ?: Dates.today())) },
-                        backdrop = backdrop,
-                        modifier = Modifier
-                            .size(64.dp)
-                            .onGloballyPositioned { plusCenter = it.boundsInRoot().center }
-                            .graphicsLayer { alpha = if (editor?.fromPlus == true) 0f else 1f },
-                        surfaceColor = c.surface.copy(alpha = 0.4f),
-                    ) {
-                        Icon(CbIcons.Plus, "新增事項", tint = c.ink, modifier = Modifier.size(26.dp))
-                    }
+                    Icon(CbIcons.Plus, "新增事項", tint = c.ink, modifier = Modifier.size(26.dp))
                 }
             }
         }
